@@ -565,7 +565,8 @@ tickerEl.innerHTML = doubled.map(g => `<span>${g}</span>`).join('<span class="mo
 const tracks = [
   { title:'Good Morning My Love', genre:'Ug Vibes', src:'src/good-morning-my-love.mp3', date:'2026-07-16' },
   { title:'Pearl of Africa', genre:'Ug Vibes', src:'src/pearl-of-africa.mp3', date:'2026-07-17' },
-  { title:'Nonstop Mix Vol 1', genre:'Ug Vibes', src:'src/nonstop-mix-vol-1.mp3', date:'2026-07-18' },
+  { title:'Nonstop Mix Vol 1', genre:'Ug Vibes', src:'https://github.com/jaywalker256/Dj-Walker-Ug/releases/download/v2026.07.18/nonstop-mix-vol-1.mp3', date:'2026-07-18' },
+
 
   // ---- Add more real tracks above this line as you release them ----
 ];
@@ -640,23 +641,40 @@ async function downloadTrack(index){
   const originalLabel = btn ? btn.textContent : null;
   if(btn){ btn.textContent = '…'; btn.style.pointerEvents = 'none'; }
 
-  try{
-    // Fetch the file ourselves and force-save it as a blob.
-    // A plain <a download> is ignored by several mobile browsers
-    // (notably iOS Safari), which just open/play the file instead
-    // of saving it — this works reliably everywhere.
-    const res = await fetch(track.src);
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const blob = await res.blob();
-    const blobUrl = URL.createObjectURL(blob);
+  // Cross-origin sources (e.g. GitHub Release assets, used for files too
+  // big for the repo itself) never send CORS headers, so we can't fetch
+  // the bytes ourselves to force a blob download — that request would
+  // just throw. GitHub already serves release downloads with its own
+  // Content-Disposition: attachment header, so a plain link click
+  // triggers a real save-to-disk there, no blob trick needed.
+  const isCrossOrigin = /^https?:\/\//i.test(track.src);
 
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = track.title.replace(/\s+/g,'_') + '.mp3';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
+  try{
+    if(isCrossOrigin){
+      const a = document.createElement('a');
+      a.href = track.src;
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
+      // Same-origin files: fetch the file ourselves and force-save it as
+      // a blob. A plain <a download> is ignored by several mobile
+      // browsers (notably iOS Safari), which just open/play the file
+      // instead of saving it — this works reliably everywhere.
+      const res = await fetch(track.src);
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = track.title.replace(/\s+/g,'_') + '.mp3';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
+    }
   }catch(err){
     console.error('Download failed:', err);
     alert("Sorry, that download didn't go through. Please try again in a moment.");
