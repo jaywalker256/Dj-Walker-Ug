@@ -789,8 +789,8 @@ function loadTracks(){
           cover: track.cover || '',
           coverKey: track.coverKey || null,
           audioKey: track.audioKey || null,
-          audioUrl: track.audioUrl || null,
-          coverUrl: track.coverUrl || null,
+          audioUrl: null,
+          coverUrl: null,
         }));
       }
     }
@@ -808,7 +808,7 @@ function loadTracks(){
 }
 
 function saveTracks(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tracks));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(tracks.map(({ audioUrl, coverUrl, ...track }) => track)));
 }
 
 function sortTracks(){
@@ -1224,9 +1224,10 @@ adminTrackForm.addEventListener('submit', async (event) => {
         await deleteFileBlob(coverKey).catch(() => {});
       }
       coverKey = `cover-${trackId}-${generateId()}`;
-    cover = '';
-    coverUrl = getObjectUrl(coverKey, coverFile);
-  }
+      cover = '';
+      await saveFileBlob(coverKey, coverFile);
+      coverUrl = getObjectUrl(coverKey, coverFile);
+    }
 
   const trackData = {
     id: trackId,
