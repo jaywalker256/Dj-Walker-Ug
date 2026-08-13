@@ -11,401 +11,657 @@
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 
-<!-- Social link previews (WhatsApp, TikTok bio, Twitter/X, etc.) -->
-<!-- NOTE: once this site is live on its real domain, replace the two
-     "https://YOUR-DOMAIN-HERE" lines below with your actual site URL,
-     e.g. https://djwalkerug.com — some platforms won't show the image
-     otherwise. -->
+<!-- Social link previews -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="DJ Walker UG — Every Genre, One Set">
 <meta property="og:description" content="Kampala's genre-blending DJ. Stream and download the latest tracks, catch clips, and book for your next event.">
-<meta property="og:image" content="https://YOUR-DOMAIN-HERE/assets/og-image.png">
-<meta property="og:url" content="https://YOUR-DOMAIN-HERE">
+<meta property="og:image" content="assets/og-image.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="DJ Walker UG — Every Genre, One Set">
 <meta name="twitter:description" content="Kampala's genre-blending DJ. Stream and download the latest tracks, catch clips, and book for your next event.">
-<meta name="twitter:image" content="https://YOUR-DOMAIN-HERE/assets/og-image.png">
+<meta name="twitter:image" content="assets/og-image.png">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Work+Sans:wght@400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Work+Sans:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
 
-<!-- =====================================================================
-     TRUE PUSH NOTIFICATIONS (reach fans even when they're not on the site)
-     =====================================================================
-     1. Go to onesignal.com, make a free account, create a "Web" app.
-        Set your Site URL to wherever this site is hosted (must be HTTPS).
-     2. OneSignal gives you an "App ID" (looks like a long code) and a file
-        called OneSignalSDKWorker.js. Download that file and put it in the
-        SAME folder as this index.html (the very top level of your site).
-     3. Paste your App ID below, replacing YOUR-ONESIGNAL-APP-ID-HERE.
-     4. That's it — visitors now see a bell icon in the top-right of the
-        nav bar. Tapping it asks their browser for permission and
-        subscribes them (the bell fills in with color once they're in;
-        tapping again unsubscribes). Whenever you release a new track,
-        log into the OneSignal dashboard, click "New Push", write
-        something like "New drop: Song Name 🔥", and hit send. It reaches
-        everyone who subscribed, even if they're not on the site right
-        now or their browser is closed — no coding needed for that part.
-     ===================================================================== -->
+<!-- OneSignal Push Notifications (Optional Web Integration) -->
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "YOUR-ONESIGNAL-APP-ID-HERE",
-    });
+    const appId = "YOUR-ONESIGNAL-APP-ID-HERE";
+    if (appId && appId !== "YOUR-ONESIGNAL-APP-ID-HERE" && !appId.includes("YOUR-")) {
+      try {
+        await OneSignal.init({ appId });
+      } catch (err) {
+        console.warn("OneSignal initialization deferred:", err);
+      }
+    }
   });
 </script>
-<style>
-  :root{
-    --bg: #120F1C;
-    --bg-panel: #1C1830;
-    --bg-panel-2: #221D3C;
-    --line: #322B4D;
-    --text: #F3EFEA;
-    --text-dim: #9A91B8;
-    --amber: #F4A65E;
-    --magenta: #EA4F8F;
-    --cyan: #35C9C6;
-    --violet: #7C6FE0;
-    --gradient: linear-gradient(90deg, var(--amber), var(--magenta), var(--violet), var(--cyan));
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  html{scroll-behavior:smooth;}
-  body{
-    background:var(--bg);
-    color:var(--text);
-    font-family:'Work Sans', sans-serif;
-    overflow-x:hidden;
-  }
-  ::selection{ background:var(--magenta); color:var(--bg); }
 
-  a{ color:inherit; text-decoration:none; }
-  .mono{ font-family:'Space Mono', monospace; }
+<style>
+  :root {
+    --bg: #0d0a17;
+    --bg-panel: #161226;
+    --bg-panel-2: #1e1836;
+    --bg-card: rgba(30, 24, 54, 0.6);
+    --line: #2e264d;
+    --line-active: #51447a;
+    --text: #f5f2eb;
+    --text-dim: #a198c2;
+    --amber: #f4a65e;
+    --magenta: #ea4f8f;
+    --cyan: #35c9c6;
+    --violet: #7c6fe0;
+    --success: #35c98f;
+    --gradient: linear-gradient(135deg, #f4a65e, #ea4f8f, #7c6fe0, #35c9c6);
+    --gradient-accent: linear-gradient(90deg, #ea4f8f, #7c6fe0);
+    --shadow-glow: 0 0 25px rgba(234, 79, 143, 0.2);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Work Sans', sans-serif;
+    overflow-x: hidden;
+    padding-bottom: 110px; /* Space for fixed audio player */
+  }
+  ::selection { background: var(--magenta); color: var(--bg); }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: 'Space Mono', monospace; }
+
+  /* ---------- TOAST SYSTEM ---------- */
+  .toast-container {
+    position: fixed; top: 80px; right: 24px; z-index: 9999;
+    display: flex; flex-direction: column; gap: 10px; pointer-events: none;
+  }
+  .toast {
+    background: var(--bg-panel);
+    border: 1px solid var(--line-active);
+    color: var(--text);
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    display: flex; align-items: center; gap: 10px;
+    opacity: 0; transform: translateY(-10px);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    pointer-events: auto;
+  }
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.success { border-color: var(--success); }
+  .toast.error { border-color: var(--magenta); }
 
   /* ---------- NAV ---------- */
-  nav{
-    position:fixed; top:0; left:0; right:0; z-index:50;
-    display:flex; align-items:center; justify-content:space-between;
-    padding:18px clamp(20px,5vw,56px);
-    background:rgba(18,15,28,0.7);
-    backdrop-filter: blur(10px);
-    border-bottom:1px solid var(--line);
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px clamp(20px, 5vw, 56px);
+    background: rgba(13, 10, 23, 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--line);
   }
-  .nav-logo{
-    font-family:'Anton', sans-serif;
-    font-size:20px;
-    letter-spacing:0.5px;
-    display:flex; align-items:center; gap:10px;
+  .nav-logo {
+    font-family: 'Anton', sans-serif;
+    font-size: 22px;
+    letter-spacing: 0.5px;
+    display: flex; align-items: center; gap: 12px;
   }
-  .nav-logo img{ height:38px; width:auto; display:block; }
+  .nav-logo img { height: 38px; width: auto; display: block; }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .nav-links {
+    display: flex; gap: 28px; font-size: 13px; font-weight: 500;
+    letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim);
+  }
+  .nav-links a { transition: color 0.2s ease; position: relative; }
+  .nav-links a:hover, .nav-links a.active { color: var(--text); }
+  .nav-links a.active::after {
+    content: ''; position: absolute; bottom: -6px; left: 0; right: 0;
+    height: 2px; background: var(--gradient-accent); border-radius: 1px;
+  }
 
-  /* ---------- NOTIFICATION BELL ---------- */
-  .nav-right{ display:flex; align-items:center; gap:14px; }
-  .bell-btn{
-    width:40px; height:40px; border-radius:50%; border:1px solid var(--line);
-    background:transparent; color:var(--text); display:flex; align-items:center; justify-content:center;
-    cursor:pointer; flex-shrink:0; position:relative; transition:all .2s ease;
+  .bell-btn {
+    width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--bg-panel); color: var(--text); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; position: relative; transition: all 0.2s ease;
   }
-  .bell-btn:hover{ border-color:var(--text-dim); background:var(--bg-panel-2); }
-  .bell-btn svg{ width:18px; height:18px; }
-  .bell-btn.is-subscribed{ background:var(--gradient); border-color:transparent; color:var(--bg); }
-  .bell-btn .bell-dot{
-    position:absolute; top:6px; right:6px; width:8px; height:8px; border-radius:50%;
-    background:var(--magenta); box-shadow:0 0 8px var(--magenta); display:none;
+  .bell-btn:hover { border-color: var(--text-dim); background: var(--bg-panel-2); }
+  .bell-btn.is-subscribed { background: var(--gradient-accent); border-color: transparent; color: #fff; }
+  .bell-dot {
+    position: absolute; top: 8px; right: 8px; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--magenta); box-shadow: 0 0 10px var(--magenta); display: block;
+    animation: pulse 1.6s infinite;
   }
-  .bell-btn.needs-attention .bell-dot{ display:block; animation:pulse 1.6s infinite; }
-  .bell-toast{
-    position:fixed; top:74px; right:clamp(16px,4vw,50px); z-index:60;
-    background:var(--bg-panel); border:1px solid var(--line); border-radius:12px;
-    padding:14px 18px; font-family:'Space Mono', monospace; font-size:12.5px;
-    color:var(--text); max-width:260px; box-shadow:0 12px 30px rgba(0,0,0,0.4);
-    opacity:0; transform:translateY(-8px); pointer-events:none; transition:all .25s ease;
-  }
-  .bell-toast.show{ opacity:1; transform:translateY(0); }
-  .nav-links{ display:flex; gap:28px; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text-dim); }
-  .nav-links a:hover{ color:var(--text); }
-  .nav-toggle{
-    display:none; width:40px; height:40px; border-radius:50%; border:1px solid var(--line);
-    background:transparent; color:var(--text); align-items:center; justify-content:center;
-    cursor:pointer; flex-shrink:0;
-  }
-  .nav-toggle span{ display:block; width:16px; height:2px; background:var(--text); position:relative; }
-  .nav-toggle span::before, .nav-toggle span::after{
-    content:''; position:absolute; left:0; width:16px; height:2px; background:var(--text); transition:transform .2s ease;
-  }
-  .nav-toggle span::before{ top:-5px; } .nav-toggle span::after{ top:5px; }
 
-  @media (max-width:640px){
-    .nav-links{
-      display:flex; flex-direction:column; gap:0;
-      position:fixed; top:60px; left:0; right:0;
-      background:var(--bg-panel); border-bottom:1px solid var(--line);
-      max-height:0; overflow:hidden; transition:max-height .3s ease;
+  .nav-toggle {
+    display: none; width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line);
+    background: var(--bg-panel); color: var(--text); align-items: center; justify-content: center;
+    cursor: pointer;
+  }
+  .nav-toggle span { display: block; width: 18px; height: 2px; background: var(--text); position: relative; }
+  .nav-toggle span::before, .nav-toggle span::after {
+    content: ''; position: absolute; left: 0; width: 18px; height: 2px; background: var(--text); transition: transform .2s ease;
+  }
+  .nav-toggle span::before { top: -6px; } .nav-toggle span::after { top: 6px; }
+
+  @media (max-width: 768px) {
+    .nav-links {
+      display: flex; flex-direction: column; gap: 0;
+      position: fixed; top: 72px; left: 0; right: 0;
+      background: var(--bg-panel); border-bottom: 1px solid var(--line);
+      max-height: 0; overflow: hidden; transition: max-height 0.3s ease;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
     }
-    .nav-links.open{ max-height:280px; }
-    .nav-links a{ padding:18px 24px; border-top:1px solid var(--line); }
-    .nav-toggle{ display:flex; }
+    .nav-links.open { max-height: 320px; }
+    .nav-links a { padding: 16px 24px; border-top: 1px solid var(--line); }
+    .nav-toggle { display: flex; }
   }
 
   /* ---------- HERO ---------- */
-  .hero{
-    min-height:100svh;
-    display:flex; flex-direction:column; justify-content:center;
-    position:relative;
-    padding: 120px clamp(20px,5vw,56px) 60px;
-    overflow:hidden;
+  .hero {
+    min-height: 92vh;
+    display: flex; flex-direction: column; justify-content: center;
+    position: relative;
+    padding: 130px clamp(20px, 5vw, 56px) 60px;
+    overflow: hidden;
   }
-  .eq-field{
-    position:absolute; inset:0;
-    display:flex; align-items:flex-end; justify-content:center;
-    gap:6px; opacity:0.5; z-index:0;
-    padding-bottom: 0;
+  .eq-field {
+    position: absolute; inset: 0;
+    display: flex; align-items: flex-end; justify-content: center;
+    gap: 6px; opacity: 0.35; z-index: 0; pointer-events: none;
   }
-  .eq-bar{
-    width:8px; border-radius:3px 3px 0 0;
-    background:var(--gradient);
+  .eq-bar {
+    width: 8px; border-radius: 4px 4px 0 0;
+    background: var(--gradient);
     animation: bounce 1.4s ease-in-out infinite;
-    transform-origin:bottom;
+    transform-origin: bottom;
   }
-  @keyframes bounce{
-    0%,100%{ transform:scaleY(0.15); }
-    50%{ transform:scaleY(1); }
+  @keyframes bounce {
+    0%, 100% { transform: scaleY(0.12); }
+    50% { transform: scaleY(1); }
   }
-  @media (prefers-reduced-motion:reduce){ .eq-bar{ animation:none; transform:scaleY(0.5);} }
 
-  /* ---------- HERO TURNTABLE GRAPHIC ---------- */
-  .hero-turntable{
-    position:absolute; right:clamp(-30px,1vw,20px); top:50%; transform:translateY(-50%);
-    width:clamp(260px,30vw,440px); height:auto; z-index:0; opacity:0.92; pointer-events:none;
+  .hero-turntable {
+    position: absolute; right: clamp(-20px, 2vw, 40px); top: 50%; transform: translateY(-50%);
+    width: clamp(280px, 32vw, 460px); height: auto; z-index: 0; opacity: 0.9; pointer-events: none;
   }
-  .hero-turntable .platter{ transform-origin:200px 200px; animation:ttspin 9s linear infinite; }
-  @media (prefers-reduced-motion:reduce){ .hero-turntable .platter{ animation:none; } }
-  @keyframes ttspin{ to{ transform:rotate(360deg); } }
-  @media (max-width:980px){ .hero-turntable{ display:none; } }
+  .hero-turntable .platter { transform-origin: 200px 200px; animation: ttspin 10s linear infinite; }
+  @keyframes ttspin { to { transform: rotate(360deg); } }
+  @media (max-width: 980px) { .hero-turntable { display: none; } }
 
-  .hero-inner{ position:relative; z-index:1; max-width:900px; }
-  .hero-eyebrow{
-    font-family:'Space Mono', monospace;
-    font-size:13px; letter-spacing:0.15em; text-transform:uppercase;
-    color:var(--text-dim); margin-bottom:18px;
-    display:flex; align-items:center; gap:10px;
+  .hero-inner { position: relative; z-index: 1; max-width: 860px; }
+  .hero-eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--text-dim); margin-bottom: 20px;
+    display: flex; align-items: center; gap: 10px;
   }
-  .live-dot{ width:8px; height:8px; border-radius:50%; background:var(--magenta); box-shadow:0 0 12px var(--magenta); animation:pulse 1.6s infinite; }
-  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+  .live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--magenta); box-shadow: 0 0 12px var(--magenta); animation: pulse 1.6s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
 
-  .hero h1{
-    font-family:'Anton', sans-serif;
-    font-size:clamp(56px, 12vw, 148px);
-    line-height:0.88;
-    letter-spacing:0.5px;
-    text-transform:uppercase;
+  .hero h1 {
+    font-family: 'Anton', sans-serif;
+    font-size: clamp(60px, 11vw, 140px);
+    line-height: 0.88;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
   }
-  .hero h1 .grad{
-    background:var(--gradient);
-    -webkit-background-clip:text; background-clip:text; color:transparent;
+  .hero h1 .grad {
+    background: var(--gradient);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  .hero .hero-subtitle{
-    font-family:'Anton', sans-serif;
-    font-size:clamp(18px, 3vw, 28px);
-    letter-spacing:0.12em; text-transform:uppercase;
-    color:var(--text-dim);
-    margin-top:16px;
+  .hero-subtitle {
+    font-family: 'Anton', sans-serif;
+    font-size: clamp(20px, 3.5vw, 32px);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-dim); margin-top: 18px;
   }
-  .hero-subtitle span{ color:var(--magenta); }
-  .hero p{
-    margin-top:26px; max-width:520px;
-    font-size:clamp(16px,2vw,19px); color:var(--text-dim); line-height:1.6;
+  .hero-subtitle span { color: var(--magenta); }
+  .hero p {
+    margin-top: 24px; max-width: 560px;
+    font-size: clamp(16px, 2vw, 19px); color: var(--text-dim); line-height: 1.6;
   }
-  .hero-cta{ display:flex; gap:16px; margin-top:36px; flex-wrap:wrap; }
-  .privacy-note{ margin-top:22px; font-size:12px; color:var(--text-dim); max-width:480px; line-height:1.6; }
-  .btn{
-    font-family:'Work Sans', sans-serif; font-weight:600; font-size:14px;
-    padding:14px 26px; border-radius:999px; border:1px solid var(--line);
-    cursor:pointer; transition:all .2s ease; display:inline-flex; align-items:center; gap:8px;
-    background:transparent; color:var(--text);
+  .hero-cta { display: flex; gap: 16px; margin-top: 36px; flex-wrap: wrap; }
+  
+  .btn {
+    font-family: 'Work Sans', sans-serif; font-weight: 600; font-size: 14px;
+    padding: 14px 28px; border-radius: 999px; border: 1px solid var(--line-active);
+    cursor: pointer; transition: all 0.25s ease; display: inline-flex; align-items: center; gap: 10px;
+    background: var(--bg-panel); color: var(--text);
   }
-  .btn-solid{ background:var(--text); color:var(--bg); border-color:var(--text); }
-  .btn:hover{ transform:translateY(-2px); border-color:var(--text-dim); }
-  .btn-solid:hover{ opacity:0.88; }
+  .btn-solid { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .btn-gradient { background: var(--gradient); color: #0d0a17; border-color: transparent; font-weight: 700; }
+  .btn:hover { transform: translateY(-2px); border-color: var(--text-dim); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+  .btn-solid:hover { background: #ffffff; }
+  .btn-gradient:hover { filter: brightness(1.1); box-shadow: var(--shadow-glow); }
 
   /* ---------- TICKER ---------- */
-  .ticker-wrap{
-    border-top:1px solid var(--line); border-bottom:1px solid var(--line);
-    background:var(--bg-panel);
-    overflow:hidden; padding:16px 0;
+  .ticker-wrap {
+    border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+    background: var(--bg-panel); overflow: hidden; padding: 18px 0;
   }
-  .ticker{
-    display:flex; gap:40px; white-space:nowrap;
-    animation: scroll 28s linear infinite;
-    width:max-content;
+  .ticker {
+    display: flex; gap: 40px; white-space: nowrap;
+    animation: scroll 26s linear infinite; width: max-content;
   }
-  @keyframes scroll{ from{ transform:translateX(0);} to{ transform:translateX(-50%);} }
-  .ticker span{
-    font-family:'Anton', sans-serif; font-size:20px; text-transform:uppercase;
-    color:var(--text-dim); letter-spacing:0.5px;
+  @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  .ticker span {
+    font-family: 'Anton', sans-serif; font-size: 22px; text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
-  @media (max-width:640px){ .ticker span{ font-size:15px; } }
-  .ticker span:nth-child(4n+1){ color:var(--amber); }
-  .ticker span:nth-child(4n+2){ color:var(--magenta); }
-  .ticker span:nth-child(4n+3){ color:var(--cyan); }
-  .ticker span:nth-child(4n+4){ color:var(--violet); }
+  .ticker span:nth-child(4n+1) { color: var(--amber); }
+  .ticker span:nth-child(4n+2) { color: var(--magenta); }
+  .ticker span:nth-child(4n+3) { color: var(--cyan); }
+  .ticker span:nth-child(4n+4) { color: var(--violet); }
 
-  /* ---------- SECTION SHARED ---------- */
-  section{ padding:100px clamp(20px,5vw,56px); }
-  @media (max-width:640px){ section{ padding:64px 20px; } }
-  .section-head{ display:flex; align-items:baseline; gap:18px; margin-bottom:48px; flex-wrap:wrap; }
-  .section-num{ font-family:'Space Mono', monospace; color:var(--text-dim); font-size:14px; }
-  .section-title{ font-family:'Anton', sans-serif; font-size:clamp(32px,5vw,52px); text-transform:uppercase; }
+  /* ---------- SECTIONS SHARED ---------- */
+  section { padding: 90px clamp(20px, 5vw, 56px); }
+  @media (max-width: 640px) { section { padding: 60px 20px; } }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; margin-bottom: 40px; flex-wrap: wrap; }
+  .section-title-wrap { display: flex; align-items: baseline; gap: 16px; }
+  .section-num { font-family: 'Space Mono', monospace; color: var(--text-dim); font-size: 14px; }
+  .section-title { font-family: 'Anton', sans-serif; font-size: clamp(32px, 5vw, 52px); text-transform: uppercase; letter-spacing: 0.5px; }
 
-  /* ---------- TRACKS ---------- */
-  .track-list{ display:flex; flex-direction:column; border-top:1px solid var(--line); }
-  .track{
-    display:grid;
-    grid-template-columns: 40px 1fr auto auto auto;
-    align-items:center; gap:20px;
-    padding:22px 10px;
-    border-bottom:1px solid var(--line);
-    transition:background .2s ease;
+  /* ---------- FILTER & SEARCH BAR ---------- */
+  .filter-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    margin-bottom: 30px; flex-wrap: wrap;
   }
-  .track:hover{ background:var(--bg-panel); }
-  .track-idx{ font-family:'Space Mono', monospace; color:var(--text-dim); font-size:14px; }
-  .track-info{ display:flex; align-items:center; gap:12px; }
-  .track-info h3{ font-family:'Work Sans',sans-serif; font-weight:600; font-size:17px; margin:0; }
-  .track-info span{ font-family:'Space Mono', monospace; font-size:12px; color:var(--text-dim); text-transform:uppercase; letter-spacing:0.06em; }
-  .track-thumb{ width:40px; height:40px; border-radius:12px; object-fit:cover; background:var(--bg-panel); border:1px solid var(--line); }
-  .track-progress{
-    width:clamp(90px,20vw,220px); height:4px; background:var(--line); border-radius:2px; overflow:hidden; position:relative;
+  .search-input-wrap {
+    position: relative; flex: 1; min-width: 240px; max-width: 380px;
   }
-  .track-progress-fill{ height:100%; width:0%; background:var(--gradient); }
-  .track-time{ font-family:'Space Mono', monospace; font-size:12px; color:var(--text-dim); width:38px; text-align:right; }
-  .icon-btn{
-    width:40px; height:40px; border-radius:50%; border:1px solid var(--line);
-    display:flex; align-items:center; justify-content:center; cursor:pointer; background:transparent;
-    color:var(--text); flex-shrink:0; transition:all .2s ease;
+  .search-input {
+    width: 100%; padding: 12px 18px 12px 42px; border-radius: 999px;
+    background: var(--bg-panel); border: 1px solid var(--line); color: var(--text);
+    font: inherit; font-size: 14px; outline: none; transition: all 0.2s ease;
   }
-  .icon-btn:hover{ border-color:var(--text-dim); background:var(--bg-panel-2); }
-  .icon-btn.play.is-playing{ background:var(--gradient); border-color:transparent; color:var(--bg); }
-  .icon-btn.play.is-paused{ background:var(--bg-panel-2); border-color:var(--text-dim); }
-  .icon-btn.stop:hover{ border-color:var(--magenta); color:var(--magenta); }
-  @media (max-width:640px){
-    .track{ grid-template-columns: 30px 1fr auto auto; }
-    .track-progress{ display:none; }
+  .search-input:focus { border-color: var(--violet); box-shadow: 0 0 15px rgba(124, 111, 224, 0.25); }
+  .search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--text-dim); width: 16px; height: 16px; }
+  
+  .genre-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+  .genre-pill {
+    padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--bg-panel); color: var(--text-dim); font-size: 12px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s ease;
   }
-  .demo-note{ margin-top:26px; font-size:13px; color:var(--text-dim); font-family:'Space Mono', monospace; }
-  .track-coming-soon{ opacity:0.55; grid-template-columns: 40px 1fr; }
-  .track-coming-soon h3{ font-weight:500; color:var(--text-dim); }
-  .now-playing-card{ display:grid; gap:18px; margin-bottom:28px; padding:24px; border:1px solid var(--line); border-radius:24px; background:var(--bg-panel); }
-  .now-playing-details{ display:grid; grid-template-columns:minmax(120px,240px) 1fr; gap:18px; align-items:center; }
-  .now-playing-cover{ width:100%; border-radius:22px; overflow:hidden; background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(0,0,0,0.08)); }
-  .now-playing-cover img{ width:100%; height:100%; display:block; object-fit:cover; min-height:240px; }
-  .now-playing-meta h3{ margin:8px 0 0; font-size:24px; line-height:1.1; }
-  .now-playing-meta .mono{ display:block; font-size:12px; margin-top:8px; color:var(--text-dim); }
-  .now-playing-controls{ display:flex; flex-wrap:wrap; gap:12px; }
-  .timeline-slider{ width:100%; appearance:none; height:8px; border-radius:999px; background:var(--line); outline:none; accent-color:var(--gradient); }
-  .timeline-slider::-webkit-slider-thumb{ appearance:none; width:16px; height:16px; border-radius:50%; background:var(--gradient); border:2px solid var(--bg); cursor:pointer; margin-top:-4px; }
-  .timeline-slider::-moz-range-thumb{ width:16px; height:16px; border-radius:50%; background:var(--gradient); border:2px solid var(--bg); cursor:pointer; }
-  .now-playing-time{ display:flex; justify-content:space-between; gap:8px; font-family:'Space Mono', monospace; font-size:12px; color:var(--text-dim); }
-  @media (max-width:800px){ .now-playing-details{ grid-template-columns:1fr; } }
+  .genre-pill:hover, .genre-pill.active {
+    background: var(--bg-panel-2); color: var(--text); border-color: var(--violet);
+  }
 
-  /* ---------- ADMIN ---------- */
-  .admin-panel{ display:grid; grid-template-columns: minmax(280px, 340px) 1fr; gap:24px; align-items:start; }
-  .admin-card{
-    background:var(--bg-panel); border:1px solid var(--line); border-radius:18px;
-    padding:24px; display:flex; flex-direction:column; gap:14px;
+  /* ---------- TRACK LIST & CARDS ---------- */
+  .track-list { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+  .track {
+    display: grid;
+    grid-template-columns: 36px 1fr 120px 60px auto;
+    align-items: center; gap: 20px;
+    padding: 20px 12px;
+    border-bottom: 1px solid var(--line);
+    transition: background 0.2s ease;
+    border-radius: 12px;
   }
-  .admin-form{ display:grid; gap:12px; }
-  .admin-label{ font-family:'Space Mono', monospace; font-size:12px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-dim); }
-  .admin-note{ font-family:'Space Mono', monospace; font-size:12px; color:var(--text); background:rgba(255,255,255,0.03); border:1px solid var(--line); border-radius:12px; padding:14px; }
-  .admin-input, .admin-textarea{
-    width:100%; border:1px solid var(--line); background:var(--bg); color:var(--text);
-    padding:12px 14px; border-radius:10px; font:inherit;
-  }
-  .admin-help{ font-family:'Space Mono', monospace; font-size:11px; color:var(--text-dim); line-height:1.4; }
-  .admin-textarea{ min-height:90px; resize:vertical; }
-  .admin-actions{ display:flex; flex-wrap:wrap; gap:10px; margin-top:4px; }
-  .admin-btn{
-    border:1px solid var(--line); background:transparent; color:var(--text);
-    padding:10px 14px; border-radius:999px; cursor:pointer; font:inherit;
-    transition:all .2s ease;
-  }
-  .admin-btn:hover{ border-color:var(--text-dim); background:var(--bg-panel-2); }
-  .admin-btn.primary{ background:var(--gradient); color:var(--bg); border-color:transparent; }
-  .admin-btn.danger{ border-color:var(--magenta); color:var(--magenta); }
-  .admin-status{ font-family:'Space Mono', monospace; font-size:12px; color:var(--text-dim); min-height:18px; }
-  .admin-track-list{ display:flex; flex-direction:column; gap:12px; }
-  .admin-track-item{
-    display:flex; justify-content:space-between; align-items:center; gap:16px;
-    padding:16px 18px; border:1px solid var(--line); border-radius:14px; background:rgba(255,255,255,0.02);
-  }
-  .admin-track-meta{ display:flex; flex-direction:column; gap:4px; }
-  .admin-track-meta strong{ font-size:15px; }
-  .admin-track-meta span{ font-family:'Space Mono', monospace; font-size:12px; color:var(--text-dim); }
-  .admin-track-actions{ display:flex; gap:8px; flex-shrink:0; }
-  .admin-track-actions button{ padding:8px 10px; }
-  @media (max-width:800px){ .admin-panel{ grid-template-columns:1fr; } }
+  .track:hover { background: var(--bg-panel); }
+  .track-idx { font-family: 'Space Mono', monospace; color: var(--text-dim); font-size: 14px; }
+  .track-info { display: flex; align-items: center; gap: 16px; }
+  .track-thumb { width: 48px; height: 48px; border-radius: 10px; object-fit: cover; background: var(--bg-panel-2); border: 1px solid var(--line); flex-shrink: 0; }
+  .track-meta h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .track-meta span { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text-dim); text-transform: uppercase; }
+  .track-stats { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text-dim); text-align: right; }
+  .track-progress { width: 100%; height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; position: relative; }
+  .track-progress-fill { height: 100%; width: 0%; background: var(--gradient); transition: width 0.1s linear; }
+  .track-time { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text-dim); text-align: right; }
 
-  /* ---------- CONNECT ---------- */
-  .connect-grid{ display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:2px; background:var(--line); border:1px solid var(--line); }
-  .connect-card{
-    background:var(--bg); padding:36px 28px; display:flex; flex-direction:column; gap:16px;
-    transition:background .25s ease;
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    background: var(--bg-panel); color: var(--text); flex-shrink: 0; transition: all 0.2s ease;
   }
-  .connect-card:hover{ background:var(--bg-panel); }
-  .connect-card h3{ font-family:'Anton', sans-serif; font-size:24px; text-transform:uppercase; }
-  .connect-card p{ color:var(--text-dim); font-size:14px; line-height:1.5; }
-  .connect-arrow{ font-family:'Space Mono', monospace; font-size:13px; }
-  .connect-card:nth-child(1) .connect-arrow{ color:var(--magenta); }
-  .connect-card:nth-child(2) .connect-arrow{ color:var(--cyan); }
-  .connect-card:nth-child(3) .connect-arrow{ color:var(--amber); }
+  .icon-btn:hover { border-color: var(--text-dim); background: var(--bg-panel-2); transform: scale(1.05); }
+  .icon-btn.play.is-playing { background: var(--gradient); border-color: transparent; color: #0d0a17; font-weight: bold; }
 
-  /* ---------- BIO ---------- */
-  .bio{ display:grid; grid-template-columns: 1fr 1.3fr; gap:60px; align-items:start; }
-  .bio-mark{
-    font-family:'Anton', sans-serif; font-size:clamp(80px,12vw,160px); line-height:0.8;
-    background:var(--gradient); -webkit-background-clip:text; background-clip:text; color:transparent;
+  @media (max-width: 768px) {
+    .track { grid-template-columns: 28px 1fr auto; gap: 12px; }
+    .track-stats, .track-progress { display: none; }
   }
-  .bio p{ font-size:17px; line-height:1.75; color:var(--text-dim); max-width:640px; }
-  .bio p + p{ margin-top:18px; }
-  .bio-tagline{ font-family:'Space Mono', monospace; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--amber); margin-bottom:22px; }
-  .bio-subhead{ font-family:'Space Mono', monospace; font-size:13px; letter-spacing:0.08em; text-transform:uppercase; color:var(--text); margin:30px 0 10px; }
-  .bio-subhead:first-of-type{ margin-top:0; }
-  @media (max-width:800px){ .bio{ grid-template-columns:1fr; } }
 
-  footer{
-    border-top:1px solid var(--line); padding:48px clamp(20px,5vw,56px);
-    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;
-    color:var(--text-dim); font-family:'Space Mono', monospace; font-size:13px;
+  /* ---------- FIXED AUDIO PLAYER ---------- */
+  .fixed-player {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+    background: rgba(22, 18, 38, 0.95);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-top: 1px solid var(--line-active);
+    padding: 14px clamp(20px, 4vw, 40px);
+    display: flex; align-items: center; justify-content: space-between; gap: 20px;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.7);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .fixed-player.hidden-player { transform: translateY(100%); pointer-events: none; }
+  .player-track-info { display: flex; align-items: center; gap: 14px; min-width: 200px; max-width: 320px; }
+  .player-cover { width: 52px; height: 52px; border-radius: 10px; object-fit: cover; border: 1px solid var(--line); background: var(--bg); flex-shrink: 0; }
+  .player-details h4 { font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+  .player-details span { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text-dim); }
+
+  .player-center { flex: 1; max-width: 600px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .player-controls { display: flex; align-items: center; gap: 16px; }
+  .player-btn {
+    background: transparent; border: none; color: var(--text); cursor: pointer;
+    font-size: 16px; transition: color 0.2s ease; display: flex; align-items: center; justify-content: center;
+  }
+  .player-btn:hover { color: var(--magenta); }
+  .player-btn-main {
+    width: 44px; height: 44px; border-radius: 50%; background: var(--gradient);
+    color: #0d0a17; font-size: 18px; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: transform 0.2s ease;
+  }
+  .player-btn-main:hover { transform: scale(1.08); box-shadow: var(--shadow-glow); }
+
+  .player-scrubber { width: 100%; display: flex; align-items: center; gap: 12px; }
+  .scrubber-slider {
+    flex: 1; appearance: none; height: 6px; border-radius: 3px; background: var(--line);
+    outline: none; cursor: pointer; transition: background 0.2s ease;
+  }
+  .scrubber-slider::-webkit-slider-thumb {
+    appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--text); border: 2px solid var(--bg); cursor: pointer;
+  }
+  .scrubber-time { font-family: 'Space Mono', monospace; font-size: 11px; color: var(--text-dim); min-width: 40px; text-align: center; }
+
+  @media (max-width: 640px) {
+    .player-track-info { max-width: 140px; }
+    .player-details h4 { max-width: 90px; }
+  }
+
+  /* ---------- CONNECT & BIO ---------- */
+  .connect-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+  .connect-card {
+    background: var(--bg-card); border: 1px solid var(--line); border-radius: 20px;
+    padding: 32px 28px; display: flex; flex-direction: column; gap: 16px;
+    transition: all 0.3s ease;
+  }
+  .connect-card:hover { transform: translateY(-4px); background: var(--bg-panel); border-color: var(--line-active); box-shadow: 0 12px 30px rgba(0,0,0,0.4); }
+  .connect-card h3 { font-family: 'Anton', sans-serif; font-size: 26px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .connect-card p { color: var(--text-dim); font-size: 14px; line-height: 1.6; }
+  .connect-arrow { font-family: 'Space Mono', monospace; font-size: 13px; font-weight: 700; margin-top: auto; }
+
+  .bio-container { display: grid; grid-template-columns: 1fr 1.3fr; gap: 50px; align-items: start; }
+  .bio-mark {
+    font-family: 'Anton', sans-serif; font-size: clamp(70px, 10vw, 150px); line-height: 0.8;
+    background: var(--gradient); -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .bio-text p { font-size: 16px; line-height: 1.75; color: var(--text-dim); margin-bottom: 18px; }
+  .bio-subhead { font-family: 'Space Mono', monospace; font-size: 13px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--amber); margin: 28px 0 12px; }
+  @media (max-width: 800px) { .bio-container { grid-template-columns: 1fr; } }
+
+  /* ---------- STATS BADGES ---------- */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-top: 36px; }
+  .stat-card { background: var(--bg-panel); border: 1px solid var(--line); padding: 20px; border-radius: 16px; text-align: center; }
+  .stat-val { font-family: 'Anton', sans-serif; font-size: 38px; color: var(--cyan); }
+  .stat-lbl { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--text-dim); text-transform: uppercase; margin-top: 4px; }
+
+  /* ---------- BOOKING FORM ---------- */
+  .booking-card {
+    background: var(--bg-panel); border: 1px solid var(--line-active); border-radius: 24px;
+    padding: clamp(24px, 4vw, 48px); max-width: 800px; margin: 0 auto;
+  }
+  .booking-form { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .form-group { display: flex; flex-direction: column; gap: 8px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-label { font-family: 'Space Mono', monospace; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-dim); }
+  .form-input, .form-select, .form-textarea {
+    width: 100%; border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    padding: 14px 16px; border-radius: 12px; font: inherit; font-size: 14px; outline: none;
+    transition: border-color 0.2s ease;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--violet); }
+  .form-textarea { min-height: 110px; resize: vertical; }
+
+  /* ---------- ADMIN PORTAL MODAL / SECTION ---------- */
+  #admin {
+    max-width: 1280px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 40px clamp(16px, 4vw, 40px);
+  }
+  .admin-panel-container {
+    background: var(--bg-panel); border: 1px solid var(--line-active); border-radius: 20px;
+    padding: clamp(16px, 3vw, 28px); margin-top: 16px; width: 100%; box-sizing: border-box;
+  }
+  .admin-tracks-grid {
+    display: grid; grid-template-columns: minmax(280px, 400px) 1fr; gap: 24px; width: 100%; align-items: start;
+  }
+  @media (max-width: 860px) {
+    .admin-tracks-grid { grid-template-columns: 1fr; }
+    .booking-form { grid-template-columns: 1fr; }
+  }
+  .admin-tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid var(--line); padding-bottom: 12px; overflow-x: auto; max-width: 100%; }
+  .admin-tab {
+    padding: 10px 18px; border-radius: 999px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text-dim); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s ease; white-space: nowrap; flex-shrink: 0;
+  }
+  .admin-tab.active { background: var(--gradient); color: #0d0a17; border-color: transparent; }
+  
+  .admin-tab-content { display: none; width: 100%; }
+  .admin-tab-content.active { display: block; }
+
+  #adminTracksList {
+    max-height: 540px;
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+  #adminBookingsList {
+    max-height: 580px;
+    overflow-y: auto;
+    padding-right: 6px;
+  }
+  #adminTracksList::-webkit-scrollbar,
+  #adminBookingsList::-webkit-scrollbar {
+    width: 6px;
+  }
+  #adminTracksList::-webkit-scrollbar-thumb,
+  #adminBookingsList::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+  }
+
+  /* Admin mode focus view - strictly display ONLY page 05 (#admin) */
+  body.admin-mode-active > :not(#admin):not(#toastContainer):not(#adminAuthModal):not(#bookingDetailModal):not(#clientStatusModal) {
+    display: none !important;
+  }
+  body.admin-mode-active #admin {
+    display: block !important;
+    padding-top: 40px;
+    min-height: 100vh;
+  }
+
+  .admin-track-item {
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+    padding: 14px 18px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg);
+    margin-bottom: 10px; flex-wrap: wrap; word-break: break-word; width: 100%; box-sizing: border-box;
+  }
+  .admin-track-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+  .badge {
+    display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-family: 'Space Mono', monospace; font-weight: bold; letter-spacing: 0.5px;
+  }
+  .badge-pending { background: rgba(244, 166, 94, 0.18); color: var(--amber); border: 1px solid var(--amber); }
+  .badge-contacted { background: rgba(0, 210, 255, 0.18); color: var(--cyan); border: 1px solid var(--cyan); }
+  .badge-confirmed { background: rgba(0, 230, 118, 0.18); color: #00e676; border: 1px solid #00e676; }
+  .badge-done { background: rgba(124, 77, 255, 0.22); color: #b388ff; border: 1px solid #b388ff; }
+  .badge-declined { background: rgba(255, 0, 128, 0.18); color: var(--magenta); border: 1px solid var(--magenta); }
+
+  footer {
+    border-top: 1px solid var(--line); padding: 40px clamp(20px, 5vw, 56px);
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+    color: var(--text-dim); font-family: 'Space Mono', monospace; font-size: 13px;
   }
 </style>
 </head>
 <body>
 
+<!-- Toast Notification Layer -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Admin Auth Modal -->
+<div id="adminAuthModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(13,10,23,0.85); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); align-items:center; justify-content:center; padding:20px;">
+  <div class="booking-card" style="max-width:440px; width:100%; border-color:var(--violet); box-shadow:0 20px 50px rgba(0,0,0,0.8); text-align:center;">
+    <div style="font-size:36px; margin-bottom:10px;">🔒</div>
+    <h3 style="font-family:'Anton',sans-serif; font-size:28px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;">Admin Access</h3>
+    <p style="color:var(--text-dim); font-size:14px; margin-bottom:20px;">Enter administrative passcode.</p>
+    <form id="adminAuthForm">
+      <div class="form-group" style="margin-bottom:16px;">
+        <input type="password" class="form-input" id="adminPasswordInput" placeholder="Enter Passcode" value="" style="text-align:center; font-family:'Space Mono',monospace; letter-spacing:2px;" required>
+      </div>
+      <div style="display:flex; gap:10px;">
+        <button type="submit" class="btn btn-gradient" style="flex:1; justify-content:center;">Unlock Admin Portal</button>
+        <button type="button" class="btn" id="closeAdminAuthBtn">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Booking Detail Modal -->
+<div id="bookingDetailModal" style="display:none; position:fixed; inset:0; z-index:9999; background:rgba(13,10,23,0.88); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); align-items:center; justify-content:center; padding:20px; overflow-y:auto;">
+  <div class="booking-card" style="max-width:680px; width:100%; border-color:var(--violet); box-shadow:0 25px 60px rgba(0,0,0,0.85); position:relative; margin:auto;">
+    <button type="button" id="closeBookingDetailBtn" style="position:absolute; top:20px; right:20px; background:none; border:none; color:var(--text-dim); font-size:22px; cursor:pointer; line-height:1; padding:6px;">✕</button>
+    
+    <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px; padding-right:30px;">
+      <span style="font-size:32px;">📋</span>
+      <div>
+        <h3 style="font-family:'Anton',sans-serif; font-size:26px; letter-spacing:0.5px; margin:0; text-transform:uppercase;" id="modalClientName">Client Name</h3>
+        <span class="mono" style="font-size:12px; color:var(--text-dim);" id="modalSubmittedDate">Submitted date</span>
+      </div>
+    </div>
+
+    <!-- Status Selector Bar -->
+    <div style="background:var(--bg); border:1px solid var(--line); padding:12px 16px; border-radius:14px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <span class="mono" style="font-size:12px; color:var(--text-dim);">STATUS CONTROL:</span>
+      <div style="display:flex; gap:6px; flex-wrap:wrap;" id="modalStatusGroup">
+        <!-- Status buttons rendered dynamically -->
+      </div>
+    </div>
+
+    <!-- Event & Details Grid -->
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;">
+      <div style="background:var(--bg); padding:14px; border-radius:12px; border:1px solid var(--line);">
+        <span class="form-label">Event Type</span>
+        <div style="font-size:16px; font-weight:600; color:var(--text); margin-top:4px;" id="modalEventType">Club Night</div>
+      </div>
+      <div style="background:var(--bg); padding:14px; border-radius:12px; border:1px solid var(--line);">
+        <span class="form-label">Event Date</span>
+        <div style="font-size:16px; font-weight:600; color:var(--cyan); margin-top:4px;" id="modalEventDate">YYYY-MM-DD</div>
+      </div>
+      <div style="background:var(--bg); padding:14px; border-radius:12px; border:1px solid var(--line); grid-column:1 / -1;">
+        <span class="form-label">Venue / Event Location</span>
+        <div style="font-size:15px; font-weight:500; color:var(--text); margin-top:4px;" id="modalLocation">Kampala</div>
+      </div>
+    </div>
+
+    <!-- Contact Shortcuts -->
+    <div style="background:var(--bg); padding:16px; border-radius:14px; border:1px solid var(--line); margin-bottom:20px;">
+      <span class="form-label">Direct Client Contact Shortcuts</span>
+      <div style="margin-top:12px; display:flex; flex-direction:column; gap:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+          <div>
+            <span style="color:var(--text-dim); font-size:13px;">Phone:</span>
+            <strong style="color:var(--text); font-size:15px; margin-left:6px;" id="modalPhoneVal">+256 0000000</strong>
+          </div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a id="modalCallBtn" href="#" class="btn" style="padding:6px 14px; font-size:12px;">📞 Call Direct</a>
+            <a id="modalWhatsappBtn" href="#" target="_blank" rel="noopener" class="btn" style="padding:6px 14px; font-size:12px; border-color:var(--cyan); color:var(--cyan);">💬 WhatsApp</a>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; border-top:1px solid var(--line); padding-top:10px;">
+          <div>
+            <span style="color:var(--text-dim); font-size:13px;">Email:</span>
+            <strong style="color:var(--text); font-size:15px; margin-left:6px;" id="modalEmailVal">client@example.com</strong>
+          </div>
+          <a id="modalEmailBtn" href="#" class="btn" style="padding:6px 14px; font-size:12px;">✉️ Send Email</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes / Requirements -->
+    <div style="margin-bottom:24px;">
+      <span class="form-label">Notes &amp; Special Instructions</span>
+      <div style="background:var(--bg); padding:16px; border-radius:12px; border:1px solid var(--line); margin-top:6px; font-size:14px; line-height:1.6; color:var(--text); white-space:pre-wrap;" id="modalNotesText">No additional notes provided.</div>
+    </div>
+
+    <!-- Footer Actions -->
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; border-top:1px solid var(--line); padding-top:16px;">
+      <button type="button" class="btn" style="border-color:var(--magenta); color:var(--magenta); font-size:12px;" id="modalDeleteBtn">🗑️ Delete Booking</button>
+      <button type="button" class="btn btn-gradient" id="modalCloseBottomBtn">Done / Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- Client Real-Time Status Modal -->
+<div id="clientStatusModal" style="display:none; position:fixed; inset:0; z-index:10000; background:rgba(13,10,23,0.92); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); align-items:center; justify-content:center; padding:20px;">
+  <div class="booking-card" style="max-width:540px; width:100%; border-color:var(--cyan); box-shadow:0 25px 60px rgba(0,210,255,0.3); text-align:center; position:relative; margin:auto;">
+    <button type="button" id="closeClientStatusModalBtn" style="position:absolute; top:16px; right:16px; background:none; border:none; color:var(--text-dim); font-size:22px; cursor:pointer; padding:4px;">✕</button>
+    <div style="font-size:52px; margin-bottom:8px;" id="clientStatusIcon">🎉</div>
+    <div style="margin-bottom:12px;">
+      <span class="badge badge-confirmed" style="font-size:13px; padding:6px 16px;" id="clientStatusBadge">CONFIRMED</span>
+    </div>
+    <h3 style="font-family:'Anton',sans-serif; font-size:26px; letter-spacing:0.5px; margin:8px 0; text-transform:uppercase;" id="clientStatusHeading">Your Booking Has Been Confirmed!</h3>
+    <p style="color:var(--text-dim); font-size:14px; margin-bottom:20px; line-height:1.5;" id="clientStatusDesc">DJ Walker UG has reviewed your request and updated your booking status in real-time.</p>
+    
+    <div style="background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:20px; text-align:left; font-size:13px;">
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+        <span style="color:var(--text-dim);">Client / Org:</span>
+        <strong id="clientStatusName" style="color:var(--text);">Client Name</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+        <span style="color:var(--text-dim);">Event Date:</span>
+        <strong id="clientStatusDate" style="color:var(--cyan);">Date</strong>
+      </div>
+      <div style="display:flex; justify-content:space-between;">
+        <span style="color:var(--text-dim);">Location:</span>
+        <strong id="clientStatusLocation" style="color:var(--text);">Kampala</strong>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+      <a id="clientStatusWhatsappBtn" href="https://wa.me/256759924353" target="_blank" rel="noopener" class="btn" style="background:#25D366; color:#000; font-weight:bold; padding:10px 18px; font-size:13px; text-decoration:none;">💬 WhatsApp DJ Walker</a>
+      <a id="clientStatusCallBtn" href="tel:0759924353" class="btn" style="background:rgba(255,255,255,0.1); color:var(--text); font-weight:bold; padding:10px 18px; font-size:13px; text-decoration:none;">📞 Direct Call</a>
+      <button type="button" class="btn btn-gradient" id="clientStatusCloseBtn">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<!-- Navigation Bar -->
 <nav>
-  <div class="nav-logo"><img src="assets/logo-nav.png" alt="DJ Walker UG logo"> DJ WALKER UG</div>
+  <a href="#" class="nav-logo">
+    <img src="assets/logo-nav.png" alt="DJ Walker UG logo" onerror="this.style.display='none'">
+    <span id="navDjName">DJ WALKER UG</span>
+  </a>
   <div class="nav-links" id="navLinks">
-    <a href="#tracks">Tracks</a>
+    <a href="#tracks" class="active">Tracks</a>
+    <a href="#booking">Booking</a>
     <a href="#connect">Connect</a>
     <a href="#bio">Bio</a>
     <a href="#admin" id="adminLink">Admin</a>
-    <a href="#booking">Booking</a>
   </div>
   <div class="nav-right">
-    <button class="bell-btn needs-attention" id="bellBtn" title="Get notified about new drops" aria-label="Enable new release notifications">
+    <button class="bell-btn" id="bellBtn" title="Push notifications">
       <span class="bell-dot"></span>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
     </button>
-    <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false"><span></span></button>
+    <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation"><span></span></button>
   </div>
 </nav>
-<div class="bell-toast" id="bellToast"></div>
 
-<!-- ================= HERO ================= -->
+<!-- Hero Section -->
 <header class="hero">
   <div class="eq-field" id="eqField"></div>
 
-  <!-- Signature graphic: a rotating turntable, built from CSS/SVG (no stock photos —
-       this keeps it license-free and matched exactly to the site's own palette). -->
   <svg class="hero-turntable" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
     <defs>
       <linearGradient id="ttRim" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -431,880 +687,1634 @@
   </svg>
 
   <div class="hero-inner">
-    <div class="hero-eyebrow"><span class="live-dot"></span> Now spinning · Kampala &amp; beyond</div>
-    <h1>DJ<br>WALKER<br><span class="grad">UG.</span></h1>
-    <p class="hero-subtitle">— <span>The Stress Killer</span> —</p>
-    <p>Get your hands in the air and get ready to jump, because it's time for DJ WALKER UG to take over!.</p>
+    <div class="hero-eyebrow"><span class="live-dot"></span> <span id="heroLocation">Now spinning · Kampala &amp; beyond</span></div>
+    <h1 id="heroTitle">DJ<br>WALKER<br><span class="grad">UG.</span></h1>
+    <p class="hero-subtitle">— <span id="heroTagline">The Stress Killer</span> —</p>
+    <p id="heroBioSnippet">Kampala's premier genre-blending DJ & producer. High energy mixtapes, original drops, and unforgettable club sets.</p>
     <div class="hero-cta">
-      <a href="#tracks" class="btn btn-solid">▶ Play the latest set</a>
-      <a href="#connect" class="btn">Follow everywhere</a>
+      <a href="#tracks" class="btn btn-gradient">▶ Listen To Latest Drops</a>
+      <a href="#booking" class="btn btn-solid">📅 Book For Events</a>
     </div>
-    <p class="privacy-note mono">🔔 Tap the bell in the top right to hear about new drops first — no email needed, unsubscribe anytime with the same button.</p>
   </div>
 </header>
 
-<!-- ================= GENRE TICKER ================= -->
+<!-- Genre Ticker -->
 <div class="ticker-wrap">
   <div class="ticker" id="ticker"></div>
 </div>
 
-<!-- ================= TRACKS ================= -->
+<!-- Music Tracks Section -->
 <section id="tracks">
   <div class="section-head">
-    <span class="section-num mono">01</span>
-    <h2 class="section-title">Stream &amp; Download</h2>
+    <div class="section-title-wrap">
+      <span class="section-num mono">01</span>
+      <h2 class="section-title">Music &amp; Mixtapes</h2>
+    </div>
   </div>
 
-  <div class="now-playing-card" id="nowPlayingCard" hidden>
-    <div class="now-playing-details">
-      <div class="now-playing-cover">
-        <img id="nowPlayingCover" alt="Current track cover" src="">
-      </div>
-      <div class="now-playing-meta">
-        <span class="section-num mono">NOW PLAYING</span>
-        <h3 id="nowPlayingTitle">Select a track to preview</h3>
-        <span id="nowPlayingGenre" class="mono">No track selected</span>
-      </div>
+  <!-- Search and Genre Filter -->
+  <div class="filter-bar">
+    <div class="search-input-wrap">
+      <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" class="search-input" id="searchInput" placeholder="Search tracks, genres...">
     </div>
-    <div class="now-playing-controls">
-      <button class="admin-btn primary" type="button" id="previewBtn">▶ Preview</button>
-      <button class="admin-btn" type="button" id="pauseBtn">⏸ Pause</button>
-      <button class="admin-btn" type="button" id="forwardBtn">⏩ Forward 10s</button>
-    </div>
-    <div class="now-playing-timeline">
-      <input class="timeline-slider" id="nowPlayingSlider" type="range" min="0" max="100" value="0">
-      <div class="now-playing-time">
-        <span id="nowPlayingCurrentTime">0:00</span>
-        <span>/</span>
-        <span id="nowPlayingDuration">0:00</span>
-      </div>
+    <div class="genre-pills" id="genrePills">
+      <button class="genre-pill active" data-genre="ALL">All</button>
+      <button class="genre-pill" data-genre="Ug Vibes">Ug Vibes</button>
+      <button class="genre-pill" data-genre="Afrobeats">Afrobeats</button>
+      <button class="genre-pill" data-genre="Amapiano">Amapiano</button>
+      <button class="genre-pill" data-genre="Dancehall">Dancehall</button>
     </div>
   </div>
 
   <div class="track-list" id="trackList"></div>
 </section>
 
-<!-- ================= CONNECT ================= -->
-<section id="connect">
-  <div class="section-head">
-    <span class="section-num mono">02</span>
-    <h2 class="section-title">Catch It Live</h2>
-  </div>
-  <div class="connect-grid">
-    <a class="connect-card" href="https://www.tiktok.com/@djwalkerug0" target="_blank" rel="noopener">
-      <h3>TikTok</h3>
-      <p>Find short clips, hot, transitions, remixes and deck moments.</p>
-      <span class="connect-arrow">FOLLOW @djwalkerug0 →</span>
-    </a>
-    <a class="connect-card" href="https://www.youtube.com/@djwalkerug" target="_blank" rel="noopener">
-      <h3>YouTube</h3>
-      <p>Full mixes, live sets and Music.</p>
-      <span class="connect-arrow">SUBSCRIBE @djwalkerug →</span>
-    </a>
-    <a class="connect-card" href="https://audiomack.com/djwalker256" target="_blank" rel="noopener">
-      <h3>Audiomack</h3>
-      <p>Every mixtape and single, free to stream and download.</p>
-      <span class="connect-arrow">FOLLOW @djwalker256 →</span>
-    </a>
-  </div>
-  <p class="demo-note">Follow, subscribe and share. This gives me energy to produce more.</p>
-</section>
-
-<!-- ================= BIO ================= -->
-<section id="bio">
-  <div class="section-head">
-    <span class="section-num mono">03</span>
-    <h2 class="section-title">THE STRESS KILLER</h2>
-  </div>
-  <div class="bio">
-    <div class="bio-mark">DJ WALKER UG</div>
-    <div>
-      <div class="bio-tagline">DJ · Music Producer · Remix Artist</div>
-      <p>DJ Walker UG is a dynamic DJ and music producer rising out of Uganda's vibrant electronic and urban music scene. Known for his seamless transitions, energetic remixes, and engaging digital content, he is quickly establishing himself as a fresh talent to watch.</p>
-
-      <div class="bio-subhead">The Journey</div>
-      <p><strong style="color:var(--text);">The Spark</strong> — Inspired directly by the performance and style of his cousin, DJ Ash Bwoy.</p>
-      <p><strong style="color:var(--text);">The Start</strong> — Launched his DJ career in 2025 using VirtualDJ, mastering digital mixing techniques.</p>
-      <p><strong style="color:var(--text);">The Evolution</strong> — Expanded his artistry in 2026 by jumping into music production and creating original tracks.</p>
-
-      <div class="bio-subhead">Performance Style</div>
-      <p>DJ Walker UG blends technical precision with modern digital production. His signature sound relies on high-energy curation, making his content highly shareable and perfect for both digital streaming and live crowds.</p>
+<!-- Stats Overview -->
+<section style="padding-top:0;">
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-val" id="statShows">250+</div>
+      <div class="stat-lbl">Live Shows Completed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="statStreams">150K+</div>
+      <div class="stat-lbl">Global Streams</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-val" id="statCountries">12</div>
+      <div class="stat-lbl">Countries Reached</div>
     </div>
   </div>
 </section>
 
-<section id="admin" hidden>
+<!-- Event Booking Section -->
+<section id="booking">
   <div class="section-head">
-    <span class="section-num mono">04</span>
-    <h2 class="section-title">Admin Panel</h2>
+    <div class="section-title-wrap">
+      <span class="section-num mono">02</span>
+      <h2 class="section-title">Book DJ Walker UG</h2>
+    </div>
   </div>
-  <div class="admin-panel">
-    <div class="admin-card">
-      <div class="admin-status" id="adminStatus">Add or edit track details below.</div>
-      <div class="admin-note">
-        Uploads are saved in your browser storage so you can add audio and cover files directly from your phone or PC. Don’t use URLs anymore.
+
+  <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:20px;">
+    <a id="bookingWhatsappBtn" href="https://wa.me/256759924353" target="_blank" rel="noopener" class="btn" style="background:#25D366; color:#000; font-weight:700; flex:1; min-width:220px; justify-content:center; padding:14px 20px; font-size:15px; border-radius:8px; text-decoration:none;">
+      💬 WhatsApp: <span id="displayWhatsapp">256759924353</span>
+    </a>
+    <a id="bookingPhoneBtn" href="tel:0759924353" class="btn" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:var(--text); font-weight:700; flex:1; min-width:220px; justify-content:center; padding:14px 20px; font-size:15px; border-radius:8px; text-decoration:none;">
+      📞 Direct Call: <span id="displayPhone">0759924353</span>
+    </a>
+  </div>
+
+  <div id="userBookingTrackerContainer" style="margin-bottom:24px;"></div>
+
+  <div class="booking-card">
+    <form class="booking-form" id="bookingForm">
+      <div class="form-group">
+        <label class="form-label" for="bookName">Your Name / Organization *</label>
+        <input type="text" class="form-input" id="bookName" required placeholder="e.g. Alex Kampala">
       </div>
-      <form class="admin-form" id="adminTrackForm">
-        <label class="admin-label" for="adminTrackTitle">Track title</label>
-        <input class="admin-input" id="adminTrackTitle" name="title" required>
+      <div class="form-group">
+        <label class="form-label" for="bookPhone">Phone / WhatsApp Number *</label>
+        <input type="tel" class="form-input" id="bookPhone" required placeholder="+256 700 000 000">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="bookEmail">Email Address</label>
+        <input type="email" class="form-input" id="bookEmail" placeholder="yourname@domain.com">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="bookType">Event Type *</label>
+        <select class="form-select" id="bookType" required onchange="toggleOtherEventType(this.value)">
+          <option value="Club Night / Gig">Club Night / Gig</option>
+          <option value="Music Festival / Concert">Music Festival / Concert</option>
+          <option value="House Party">House Party</option>
+          <option value="Wedding / Private Party">Wedding / Private Party</option>
+          <option value="Birthday Party / Celebration">Birthday Party / Celebration</option>
+          <option value="Corporate Event">Corporate Event</option>
+          <option value="Campus / University Party">Campus / University Party</option>
+          <option value="Other Event">Other Event</option>
+        </select>
+      </div>
+      <div class="form-group" id="bookTypeOtherGroup" style="display:none;">
+        <label class="form-label" for="bookTypeOther">Specify Other Event Type *</label>
+        <input type="text" class="form-input" id="bookTypeOther" placeholder="e.g. Graduation Party, Housewarming, Anniversary, etc.">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="bookDate">Event Date *</label>
+        <input type="date" class="form-input" id="bookDate" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="bookTime">Event Time / Duration</label>
+        <input type="text" class="form-input" id="bookTime" placeholder="e.g. 8:00 PM or 20:00 - 02:00 AM">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="bookLocation">Location / Venue *</label>
+        <input type="text" class="form-input" id="bookLocation" required placeholder="e.g. Guvnor Kampala">
+      </div>
+      <div class="form-group full">
+        <label class="form-label" for="bookNotes">Additional Notes / Budget</label>
+        <textarea class="form-textarea" id="bookNotes" placeholder="Tell us about the event duration, setup requirements, or playlist vibes..."></textarea>
+      </div>
+      <div class="form-group full">
+        <button type="submit" class="btn btn-gradient" style="width:100%; justify-content:center;">🚀 Send Booking Request</button>
+      </div>
+    </form>
+  </div>
+</section>
 
-        <label class="admin-label" for="adminTrackGenre">Genre</label>
-        <input class="admin-input" id="adminTrackGenre" name="genre" required>
+<!-- Connect & Socials Section -->
+<section id="connect">
+  <div class="section-head">
+    <div class="section-title-wrap">
+      <span class="section-num mono">03</span>
+      <h2 class="section-title">Follow &amp; Stream</h2>
+    </div>
+  </div>
+  <div class="connect-grid" id="socialsGrid"></div>
+</section>
 
-        <label class="admin-label" for="adminTrackAudio">Audio file</label>
-        <input class="admin-input" id="adminTrackAudio" name="audioFile" type="file" accept="audio/*">
-        <span class="admin-help">Upload audio directly from your device. Leave empty only when editing an existing track.</span>
+<!-- Biography Section -->
+<section id="bio">
+  <div class="section-head">
+    <div class="section-title-wrap">
+      <span class="section-num mono">04</span>
+      <h2 class="section-title">The Journey</h2>
+    </div>
+  </div>
+  <div class="bio-container">
+    <div class="bio-mark" id="bioMark">DJ WALKER</div>
+    <div class="bio-text">
+      <div class="bio-subhead">ARTIST PROFILE</div>
+      <p id="fullBioText">DJ Walker UG is a dynamic DJ and music producer rising out of Uganda's vibrant music scene. Known for his seamless transitions, energetic remixes, and engaging digital content.</p>
+    </div>
+  </div>
+</section>
 
-        <label class="admin-label" for="adminTrackCoverFile">Cover image</label>
-        <input class="admin-input" id="adminTrackCoverFile" name="coverFile" type="file" accept="image/*">
-        <span class="admin-help">Upload a cover image from your phone or PC. Leave empty to keep the current cover.</span>
+<!-- Admin Management Portal -->
+<section id="admin" hidden>
+  <div class="section-head" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;">
+    <div class="section-title-wrap">
+      <span class="section-num mono">05</span>
+      <h2 class="section-title">Admin Management Portal</h2>
+    </div>
+    <button id="exitAdminBtn" class="btn" style="border:1px solid rgba(255,255,255,0.2); background:rgba(255,255,255,0.05); color:var(--text); font-size:13px; font-weight:600; display:inline-flex; align-items:center; gap:8px;">
+      🔒 Exit Admin Portal
+    </button>
+  </div>
 
-        <label class="admin-label" for="adminTrackDate">Release date</label>
-        <input class="admin-input" id="adminTrackDate" name="date" type="date" required>
+  <div class="admin-panel-container">
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="tracksTab">🎵 Global Tracks</button>
+      <button class="admin-tab" data-tab="siteTab">⚙️ Site Settings &amp; Bio</button>
+      <button class="admin-tab" data-tab="bookingsTab">📬 Booking Requests (<span id="bookingCount">0</span>)</button>
+    </div>
 
-        <div class="admin-actions">
-          <button class="admin-btn primary" type="submit">Save track</button>
-          <button class="admin-btn" type="button" id="adminCancelBtn">Cancel</button>
-          <button class="admin-btn danger" type="button" id="adminExitBtn">Exit Admin</button>
+    <!-- TAB 1: TRACKS -->
+    <div class="admin-tab-content active" id="tracksTab">
+      <div class="admin-tracks-grid">
+        <form id="adminTrackForm" class="booking-card" style="margin:0; padding:24px; max-width:100%;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0;" id="adminFormHeader">Add New Release</h3>
+            <button type="button" class="btn btn-gradient" id="adminNewTrackTopBtn" onclick="prepareAddNewTrack()" style="font-size:12px; padding:6px 12px; display:inline-flex; align-items:center; gap:4px;">+ Add New Track</button>
+          </div>
+          <input type="hidden" id="adminTrackId">
+
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label" for="adminTrackTitle">Track Title *</label>
+            <input class="form-input" id="adminTrackTitle" required placeholder="Track Title (e.g. Kampala Nights Mix)">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label" for="adminTrackArtist">Artist / DJ Name</label>
+            <input class="form-input" id="adminTrackArtist" placeholder="DJ Walker UG" value="DJ Walker UG">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label" for="adminTrackGenre">Genre *</label>
+            <input class="form-input" id="adminTrackGenre" required placeholder="Genre (e.g. Afrobeats / Amapiano)">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label" for="adminTrackAudioFile">Audio File (MP3) or URL *</label>
+            <input class="form-input" id="adminTrackAudioFile" type="file" accept="audio/*">
+            <input class="form-input" id="adminTrackSrc" placeholder="Audio File URL (e.g. https://.../song.mp3)" style="margin-top:4px;">
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label" for="adminTrackCoverFile">Cover Image</label>
+            <input class="form-input" id="adminTrackCoverFile" type="file" accept="image/*">
+            <input class="form-input" id="adminTrackCover" placeholder="Cover Image URL" style="margin-top:4px;">
+          </div>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label" for="adminTrackDate">Release Date</label>
+            <input class="form-input" id="adminTrackDate" type="date">
+          </div>
+
+          <div style="display:flex; gap:10px;">
+            <button class="btn btn-gradient" type="submit" id="adminSubmitTrackBtn" style="flex:1; justify-content:center;">➕ Add Track</button>
+            <button class="btn" type="button" id="adminCancelBtn">Cancel</button>
+          </div>
+        </form>
+
+        <div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+            <h3 style="margin:0;">Current Global Releases</h3>
+            <button class="btn btn-gradient" type="button" onclick="prepareAddNewTrack()" style="font-size:12px; padding:6px 14px;">+ Add New Track</button>
+          </div>
+          <div id="adminTracksList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: SITE INFO -->
+    <div class="admin-tab-content" id="siteTab">
+      <form id="adminSiteForm" class="booking-card" style="max-width:100%;">
+        <div class="booking-form">
+          <div class="form-group">
+            <label class="form-label">DJ Brand Name</label>
+            <input type="text" class="form-input" id="adminDjName">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tagline</label>
+            <input type="text" class="form-input" id="adminTagline">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Location</label>
+            <input type="text" class="form-input" id="adminLocation">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Booking Email</label>
+            <input type="email" class="form-input" id="adminBookingEmail">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Booking Phone</label>
+            <input type="text" class="form-input" id="adminBookingPhone">
+          </div>
+          <div class="form-group">
+            <label class="form-label">WhatsApp Number</label>
+            <input type="text" class="form-input" id="adminWhatsapp">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Live Shows Completed (Stat)</label>
+            <input type="text" class="form-input" id="adminShows" placeholder="e.g. 250+">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Global Streams (Stat)</label>
+            <input type="text" class="form-input" id="adminStreams" placeholder="e.g. 150K+">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Countries Reached (Stat)</label>
+            <input type="text" class="form-input" id="adminCountries" placeholder="e.g. 12">
+          </div>
+          <div class="form-group">
+            <label class="form-label">TikTok URL</label>
+            <input type="text" class="form-input" id="adminTiktok">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Audiomack URL</label>
+            <input type="text" class="form-input" id="adminAudiomack">
+          </div>
+          <div class="form-group">
+            <label class="form-label">YouTube URL</label>
+            <input type="text" class="form-input" id="adminYoutube">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Instagram URL</label>
+            <input type="text" class="form-input" id="adminInstagram">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Full Bio Text</label>
+            <textarea class="form-textarea" id="adminBioText"></textarea>
+          </div>
+          <div class="form-group full">
+            <button type="submit" class="btn btn-gradient">Save Site Settings Globally</button>
+          </div>
         </div>
       </form>
     </div>
-    <div class="admin-card">
-      <div class="admin-label">Existing tracks</div>
-      <div class="admin-track-list" id="adminTrackList"></div>
+
+    <!-- TAB 3: BOOKING INQUIRIES -->
+    <div class="admin-tab-content" id="bookingsTab">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+        <h3 style="margin:0;">Booking Requests (<span id="bookingCount">0</span>)</h3>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button class="btn" type="button" id="clearDoneBookingsBtn" onclick="clearDoneBookings(this)" style="font-size:12px; padding:6px 14px; border-color:var(--magenta); color:var(--magenta);">
+            🧹 Remove Done Bookings
+          </button>
+        </div>
+      </div>
+      <div id="adminBookingsList"></div>
     </div>
   </div>
 </section>
 
-<footer id="booking">
-  <span>© 2026 DJ WALKER UG · Bookings: <a href="mailto:jayw18239@gmail.com" style="text-decoration:underline;">jayw18239@gmail.com</a> · <a href="https://wa.me/256759924353" target="_blank" rel="noopener" style="text-decoration:underline;">WhatsApp</a> · <a href="tel:+256759924353" style="text-decoration:underline;">Call +256 759 924 353</a></span>
-  <span>Your moods are my concern, the vibe has just started.</span>
+<!-- Fixed Bottom Audio Player -->
+<div class="fixed-player hidden-player" id="fixedPlayer">
+  <div class="player-track-info">
+    <img id="playerCover" class="player-cover" src="assets/favicon-512.png" alt="Cover">
+    <div class="player-details">
+      <h4 id="playerTitle">No track selected</h4>
+      <span id="playerGenre">DJ WALKER UG</span>
+    </div>
+  </div>
+
+  <div class="player-center">
+    <div class="player-controls">
+      <button class="player-btn" id="playerRewind" title="Rewind 10s">⏪</button>
+      <button class="player-btn-main" id="playerPlayPause">▶</button>
+      <button class="player-btn" id="playerForward" title="Forward 10s">⏩</button>
+    </div>
+    <div class="player-scrubber">
+      <span class="scrubber-time" id="playerCurrentTime">0:00</span>
+      <input type="range" class="scrubber-slider" id="playerProgress" min="0" max="100" value="0">
+      <span class="scrubber-time" id="playerDuration">0:00</span>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:center; gap:10px;">
+    <button class="btn" id="playerDownloadBtn" style="padding:8px 16px; font-size:12px;">⬇ Download</button>
+  </div>
+</div>
+
+<footer id="footer">
+  <div style="display:flex; flex-wrap:wrap; gap:10px; justify-content:center; align-items:center;">
+    <span>© 2026 <span id="footerDjName">DJ WALKER UG</span></span>
+    <span>·</span>
+    <span>Email: <a id="footerEmailLink" href="mailto:jayw18239@gmail.com" style="text-decoration:underline; color:var(--text);">jayw18239@gmail.com</a></span>
+    <span>·</span>
+    <span>Direct Call: <a id="footerPhoneLink" href="tel:0759924353" style="text-decoration:underline; color:var(--text);">0759924353</a></span>
+    <span>·</span>
+    <span>WhatsApp: <a id="footerWhatsappLink" href="https://wa.me/256759924353" target="_blank" rel="noopener" style="text-decoration:underline; color:var(--text);">256759924353</a></span>
+  </div>
+  <div style="margin-top:6px;">Your moods are my concern, the vibe has just started.</div>
 </footer>
 
 <script>
-/* ---------------- EQ hero bars ---------------- */
-const navToggle = document.getElementById('navToggle');
-const navLinks = document.getElementById('navLinks');
-navToggle.addEventListener('click', () => {
-  const isOpen = navLinks.classList.toggle('open');
-  navToggle.setAttribute('aria-expanded', String(isOpen));
-});
-navLinks.querySelectorAll('a').forEach(link => {
-  link.addEventListener('click', () => {
-    navLinks.classList.remove('open');
-    navToggle.setAttribute('aria-expanded', 'false');
-  });
-});
-
-/* ---------------- Notification bell ---------------- */
-const bellBtn = document.getElementById('bellBtn');
-const bellToast = document.getElementById('bellToast');
-let toastTimer = null;
-
-function showToast(msg){
-  bellToast.textContent = msg;
-  bellToast.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => bellToast.classList.remove('show'), 4200);
-}
-
-function setBellState(subscribed){
-  bellBtn.classList.toggle('is-subscribed', subscribed);
-  bellBtn.classList.toggle('needs-attention', !subscribed);
-  bellBtn.title = subscribed ? "You're subscribed — click to unsubscribe" : "Get notified about new drops";
-}
-
-if (bellBtn){
-  bellBtn.addEventListener('click', async () => {
-    if (typeof OneSignal === 'undefined'){
-      showToast("Notifications aren't set up on this site yet.");
-      return;
-    }
-    try{
-      const isSubscribed = OneSignal.User.PushSubscription.optedIn;
-      if (isSubscribed){
-        await OneSignal.User.PushSubscription.optOut();
-        setBellState(false);
-        showToast("Notifications turned off. Click the bell anytime to turn them back on.");
-      } else {
-        await OneSignal.Notifications.requestPermission();
-        await OneSignal.User.PushSubscription.optIn();
-        const nowSubscribed = OneSignal.User.PushSubscription.optedIn;
-        setBellState(!!nowSubscribed);
-        showToast(nowSubscribed ? "You're in! We'll ping you the second a new track drops." : "Notifications are blocked in your browser settings — enable them there to subscribe.");
-      }
-    }catch(err){
-      console.error('Notification opt-in failed:', err);
-      showToast("Something went wrong enabling notifications. Try again in a moment.");
-    }
-  });
-
-  OneSignalDeferred.push(async function(OneSignal){
-    try{
-      setBellState(!!OneSignal.User.PushSubscription.optedIn);
-      OneSignal.User.PushSubscription.addEventListener('change', (event) => {
-        setBellState(!!event.current.optedIn);
-      });
-    }catch(err){
-      console.error('OneSignal state check failed:', err);
-    }
-  });
-}
-
-const eqField = document.getElementById('eqField');
-const barCount = window.innerWidth < 640 ? 22 : 40;
-for(let i=0;i<barCount;i++){
-  const bar = document.createElement('div');
-  bar.className = 'eq-bar';
-  bar.style.height = (60 + Math.random()*180) + 'px';
-  bar.style.animationDelay = (Math.random()*1.4).toFixed(2) + 's';
-  bar.style.animationDuration = (1 + Math.random()*1.2).toFixed(2) + 's';
-  eqField.appendChild(bar);
-}
-
-/* ---------------- Genre ticker ---------------- */
-const genres = ['Afrobeats','Amapiano','Hip-Hop','R&B','House','Dancehall','Gengetone','UK Garage','Afro-House','Bongo Flava'];
-const tickerEl = document.getElementById('ticker');
-const doubled = [...genres, ...genres];
-tickerEl.innerHTML = doubled.map(g => `<span>${g}</span>`).join('<span class="mono" style="color:var(--text-dim)">·</span>');
-
-/* ---------------- Track data (placeholders) ---------------- */
-const STORAGE_KEY = 'djwalker_tracks_v1';
-const ADMIN_PASSWORD = 'DJWalkerUG2026';
-const DB_NAME = 'djwalker_admin_files';
-const DB_STORE = 'files';
-const DEFAULT_COVER_SRC = 'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns%3D%22http://www.w3.org/2000/svg%22 width%3D%22400%22 height%3D%22400%22%3E%3Crect width%3D%22400%22 height%3D%22400%22 fill%3D%22%23212226%22 /%3E%3Ctext x%3D%2250%25%22 y%3D%2250%25%22 fill%3D%22%23aaa%22 font-family%3D%22sans-serif%22 font-size%3D%2224%22 text-anchor%3D%22middle%22 dominant-baseline%3D%22middle%22%3ENo Cover%3C/text%3E%3C/svg%3E';
-const defaultTracks = [
-  { title:'Good Morning My Love', genre:'Ug Vibes', src:'src/good-morning-my-love-ft-dj-walker-ug.mp3', date:'2026-07-16', cover:'', coverKey:null, audioKey:null },
-  { title:'Pearl of Africa', genre:'Ug Vibes', src:'src/pearl-of-africa-ft-dj-walker-ug.mp3', date:'2026-07-17', cover:'', coverKey:null, audioKey:null },
-  { title:'Nonstop Mix Vol 1', genre:'Ug Vibes', src:'https://github.com/jaywalker256/Dj-Walker-Ug/releases/download/v2026.07.18/nonstop-mix-vol-1-ft-dj-walker-ug.mp3', date:'2026-07-18', cover:'', coverKey:null, audioKey:null },
-  { title:'Nonstop Mix Vol 2', genre:'Ug Vibes', src:'https://github.com/jaywalker256/Dj-Walker-Ug/releases/download/v2026.07.22/nonstop-mix-vol-2-ft-dj-walker-ug.mp3', date:'2026-07-22', cover:'', coverKey:null, audioKey:null },
-];
-
-function generateId(){
-  return typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `${Math.random().toString(36).slice(2)}-${Date.now().toString(36)}`;
-}
-
-function openDb(){
-  if(openDb.db) return openDb.db;
-  openDb.db = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if(!db.objectStoreNames.contains(DB_STORE)) db.createObjectStore(DB_STORE);
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
-  });
-  return openDb.db;
-}
-
-async function saveFileBlob(key, blob){
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    const store = tx.objectStore(DB_STORE);
-    const req = store.put(blob, key);
-    req.onsuccess = () => resolve(key);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function getFileBlob(key){
-  if(!key) return null;
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, 'readonly');
-    const store = tx.objectStore(DB_STORE);
-    const req = store.get(key);
-    req.onsuccess = () => resolve(req.result || null);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function deleteFileBlob(key){
-  if(!key) return;
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(DB_STORE, 'readwrite');
-    const store = tx.objectStore(DB_STORE);
-    const req = store.delete(key);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
-const audioUrlCache = {};
-const coverUrlCache = {};
-
-function getObjectUrl(key, blob){
-  if(!blob) return null;
-  if(audioUrlCache[key] || coverUrlCache[key]) return audioUrlCache[key] || coverUrlCache[key];
-  const url = URL.createObjectURL(blob);
-  if(key.startsWith('audio-')) audioUrlCache[key] = url;
-  else coverUrlCache[key] = url;
-  return url;
-}
-
-async function resolveTrackAudioUrl(track){
-  if(track.audioUrl) return track.audioUrl;
-  if(track.audioKey){
-    if(audioUrlCache[track.audioKey]) return audioUrlCache[track.audioKey];
-    const blob = await getFileBlob(track.audioKey);
-    if(blob){
-      const url = getObjectUrl(track.audioKey, blob);
-      track.audioUrl = url;
-      return url;
-    }
-  }
-  return track.src || null;
-}
-
-async function resolveTrackCoverUrl(track){
-  if(track.coverUrl) return track.coverUrl;
-  if(track.coverKey){
-    if(coverUrlCache[track.coverKey]) return coverUrlCache[track.coverKey];
-    const blob = await getFileBlob(track.coverKey);
-    if(blob){
-      const url = getObjectUrl(track.coverKey, blob);
-      track.coverUrl = url;
-      return url;
-    }
-  }
-  return track.cover || DEFAULT_COVER_SRC;
-}
-
-function loadTracks(){
-  try{
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if(saved){
-      const parsed = JSON.parse(saved);
-      if(Array.isArray(parsed) && parsed.length){
-        return parsed.map(track => ({
-          id: track.id || generateId(),
-          title: track.title || '',
-          genre: track.genre || '',
-          src: track.src || '',
-          date: track.date || '',
-          cover: track.cover || '',
-          coverKey: track.coverKey || null,
-          audioKey: track.audioKey || null,
-          audioUrl: null,
-          coverUrl: null,
-        }));
-      }
-    }
-  }catch(err){
-    console.warn('Could not load saved tracks:', err);
-  }
-  return defaultTracks.map(track => ({
-    id: track.id || generateId(),
-    ...track,
-    coverKey: track.coverKey || null,
-    audioKey: track.audioKey || null,
-    audioUrl: null,
-    coverUrl: null,
-  }));
-}
-
-function saveTracks(){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(tracks.map(({ audioUrl, coverUrl, ...track }) => track)));
-}
-
-function sortTracks(){
-  tracks.sort((a, b) => new Date(b.date) - new Date(a.date));
-}
-
-const trackListEl = document.getElementById('trackList');
-const nowPlayingCardEl = document.getElementById('nowPlayingCard');
-const nowPlayingCoverEl = document.getElementById('nowPlayingCover');
-const nowPlayingTitleEl = document.getElementById('nowPlayingTitle');
-const nowPlayingGenreEl = document.getElementById('nowPlayingGenre');
-const nowPlayingSliderEl = document.getElementById('nowPlayingSlider');
-const nowPlayingCurrentTimeEl = document.getElementById('nowPlayingCurrentTime');
-const nowPlayingDurationEl = document.getElementById('nowPlayingDuration');
-const previewBtn = document.getElementById('previewBtn');
-const pauseBtn = document.getElementById('pauseBtn');
-const forwardBtn = document.getElementById('forwardBtn');
-const adminPanel = document.getElementById('admin');
-const adminTrackForm = document.getElementById('adminTrackForm');
-const adminTrackAudioEl = document.getElementById('adminTrackAudio');
-const adminTrackCoverFileEl = document.getElementById('adminTrackCoverFile');
-const adminTrackListEl = document.getElementById('adminTrackList');
-const adminStatusEl = document.getElementById('adminStatus');
-const adminCancelBtn = document.getElementById('adminCancelBtn');
-const adminExitBtn = document.getElementById('adminExitBtn');
-const adminLink = document.getElementById('adminLink');
-
-let tracks = loadTracks();
-let activeTrack = null; // { index, audio, onTimeUpdate }
-const realAudioEls = {}; // index -> HTMLAudioElement
-let editingIndex = null;
+// ---------- GLOBAL STATE ----------
+let globalTracks = [];
+let globalSiteInfo = {};
+let activeTrack = null; // { track, audio, onTimeUpdate }
 let isAdminUnlocked = sessionStorage.getItem('djwalker_admin_unlocked') === 'true';
 
-function formatTime(sec){
-  if(!isFinite(sec) || sec < 0) return '0:00';
-  const m = Math.floor(sec/60);
-  const s = Math.floor(sec%60);
-  return `${m}:${String(s).padStart(2,'0')}`;
+// ---------- TOAST SYSTEM ----------
+function showToast(message, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = `toast ${type}`;
+  toast.innerHTML = `<span>${type === 'success' ? '✅' : type === 'error' ? '⚠️' : 'ℹ️'}</span> ${message}`;
+  container.appendChild(toast);
+  setTimeout(() => toast.classList.add('show'), 10);
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
 }
 
-function stopActiveVisual(index){
-  const prevBtn = document.querySelector(`.play[data-index="${index}"]`);
-  if(prevBtn) prevBtn.classList.remove('is-playing');
-  const prevFill = document.querySelector(`.track-progress-fill[data-index="${index}"]`);
-  if(prevFill) prevFill.style.width = '0%';
-}
-
-function updateNowPlayingTime(){
-  if(!activeTrack) return;
-  const duration = activeTrack.audio.duration || 0;
-  const current = activeTrack.audio.currentTime || 0;
-  nowPlayingCurrentTimeEl.textContent = formatTime(current);
-  nowPlayingDurationEl.textContent = formatTime(duration);
-  if(nowPlayingSliderEl){
-    nowPlayingSliderEl.value = duration ? String((current / duration) * 100) : '0';
+// ---------- API CALLS ----------
+async function fetchTracks() {
+  try {
+    const res = await fetch('/api/tracks');
+    if (res.ok) {
+      globalTracks = await res.json();
+      renderTracksList();
+      renderAdminTracks();
+    }
+  } catch (err) {
+    console.error('Failed to fetch global tracks:', err);
   }
 }
 
-function updateNowPlayingCard(track, index){
-  if(!nowPlayingCardEl) return;
-  nowPlayingCardEl.hidden = false;
-  nowPlayingCoverEl.src = track.coverUrl || track.cover || DEFAULT_COVER_SRC;
-  nowPlayingCoverEl.alt = `${track.title} cover`;
-  nowPlayingTitleEl.textContent = track.title;
-  nowPlayingGenreEl.textContent = `${track.genre} · ${track.date}`;
-  setPlayButtonState(index, activeTrack && activeTrack.index === index && !activeTrack.audio.paused ? 'playing' : 'paused');
-  updateNowPlayingTime();
-}
-
-function pauseNowPlaying(){
-  if(!activeTrack) return;
-  activeTrack.audio.pause();
-  setPlayButtonState(activeTrack.index, 'paused');
-  updateNowPlayingTime();
-}
-
-function previewNowPlaying(){
-  if(!activeTrack) return;
-  playTrack(activeTrack.index, { restart: true });
-}
-
-function forwardNowPlaying(){
-  if(!activeTrack || !activeTrack.audio.duration) return;
-  activeTrack.audio.currentTime = Math.min(activeTrack.audio.currentTime + 10, activeTrack.audio.duration);
-  updateNowPlayingTime();
-}
-
-function seekNowPlaying(percent){
-  if(!activeTrack || !activeTrack.audio.duration) return;
-  activeTrack.audio.currentTime = (percent / 100) * activeTrack.audio.duration;
-  updateNowPlayingTime();
-}
-
-function setPlayButtonState(index, state){
-  const btn = document.querySelector(`.play[data-index="${index}"]`);
-  if(!btn) return;
-  btn.classList.toggle('is-playing', state === 'playing');
-  btn.classList.toggle('is-paused', state === 'paused');
-  btn.textContent = state === 'playing' ? '⏸' : '▶';
-  btn.title = state === 'playing' ? 'Pause track' : 'Play track';
-}
-
-function stopActive({ reset = false } = {}){
-  if(!activeTrack) return;
-  activeTrack.audio.pause();
-  activeTrack.audio.removeEventListener('timeupdate', activeTrack.onTimeUpdate);
-  if(reset){ activeTrack.audio.currentTime = 0; }
-  stopActiveVisual(activeTrack.index);
-  setPlayButtonState(activeTrack.index, 'paused');
-  activeTrack = null;
-}
-
-async function playTrack(index, { restart = false } = {}){
-  const track = tracks[index];
-  if(!track) return;
-
-  if(activeTrack && activeTrack.index === index){
-    if(activeTrack.audio.paused){
-      if(restart) activeTrack.audio.currentTime = 0;
-      activeTrack.audio.play().catch(err => console.error('Playback failed:', err));
-      setPlayButtonState(index, 'playing');
-    } else if(restart){
-      activeTrack.audio.currentTime = 0;
-    } else {
-      activeTrack.audio.pause();
-      setPlayButtonState(index, 'paused');
+async function fetchSiteInfo() {
+  try {
+    const res = await fetch('/api/site-info');
+    if (res.ok) {
+      globalSiteInfo = await res.json();
+      renderSiteInfo();
     }
-    updateNowPlayingCard(track, index);
+  } catch (err) {
+    console.error('Failed to fetch site info:', err);
+  }
+}
+
+async function fetchBookings() {
+  try {
+    const res = await fetch('/api/bookings');
+    if (res.ok) {
+      const bookings = await res.json();
+      renderBookings(bookings);
+    }
+  } catch (err) {
+    console.error('Failed to fetch bookings:', err);
+  }
+}
+
+// ---------- RENDER FUNCTIONS ----------
+function renderSiteInfo() {
+  if (!globalSiteInfo.djName) return;
+  document.getElementById('navDjName').textContent = globalSiteInfo.djName;
+  document.getElementById('heroTitle').innerHTML = `${globalSiteInfo.djName.replace(' ', '<br>')}`;
+  document.getElementById('heroTagline').textContent = globalSiteInfo.tagline || 'The Stress Killer';
+  document.getElementById('heroLocation').textContent = `Now spinning · ${globalSiteInfo.location || 'Kampala'}`;
+  document.getElementById('heroBioSnippet').textContent = globalSiteInfo.bio || '';
+  document.getElementById('fullBioText').textContent = globalSiteInfo.bio || '';
+  document.getElementById('footerDjName').textContent = globalSiteInfo.djName;
+
+  if (globalSiteInfo.bookingEmail) {
+    const emailLink = document.getElementById('footerEmailLink');
+    if (emailLink) {
+      emailLink.href = `mailto:${globalSiteInfo.bookingEmail}`;
+      emailLink.textContent = globalSiteInfo.bookingEmail;
+    }
+  }
+
+  if (globalSiteInfo.whatsappNumber) {
+    const waNum = globalSiteInfo.whatsappNumber;
+    const waDisp = document.getElementById('displayWhatsapp');
+    if (waDisp) waDisp.textContent = waNum;
+    const waBtn = document.getElementById('bookingWhatsappBtn');
+    if (waBtn) waBtn.href = `https://wa.me/${waNum.replace(/\D/g, '')}`;
+    const waFoot = document.getElementById('footerWhatsappLink');
+    if (waFoot) {
+      waFoot.textContent = waNum;
+      waFoot.href = `https://wa.me/${waNum.replace(/\D/g, '')}`;
+    }
+  }
+
+  if (globalSiteInfo.bookingPhone) {
+    const phoneNum = globalSiteInfo.bookingPhone;
+    const phoneDisp = document.getElementById('displayPhone');
+    if (phoneDisp) phoneDisp.textContent = phoneNum;
+    const phoneBtn = document.getElementById('bookingPhoneBtn');
+    if (phoneBtn) phoneBtn.href = `tel:${phoneNum}`;
+    const phoneFoot = document.getElementById('footerPhoneLink');
+    if (phoneFoot) {
+      phoneFoot.textContent = phoneNum;
+      phoneFoot.href = `tel:${phoneNum}`;
+    }
+  }
+
+  // Stats
+  if (globalSiteInfo.stats) {
+    document.getElementById('statShows').textContent = globalSiteInfo.stats.showsDone || '250+';
+    document.getElementById('statStreams').textContent = globalSiteInfo.stats.totalStreams || '150K+';
+    document.getElementById('statCountries').textContent = globalSiteInfo.stats.countriesReached || '12';
+  }
+
+  // Socials
+  const grid = document.getElementById('socialsGrid');
+  if (grid && globalSiteInfo.socials) {
+    const soc = globalSiteInfo.socials;
+    grid.innerHTML = `
+      <a class="connect-card" href="${soc.tiktok || '#'}" target="_blank" rel="noopener">
+        <h3>TikTok</h3>
+        <p>Short mixes, deck clips, viral transitions, and behind-the-scenes vibes.</p>
+        <span class="connect-arrow" style="color:var(--magenta)">FOLLOW ON TIKTOK →</span>
+      </a>
+      <a class="connect-card" href="${soc.youtube || '#'}" target="_blank" rel="noopener">
+        <h3>YouTube</h3>
+        <p>Full length DJ sets, high definition live show recordings, and video mixes.</p>
+        <span class="connect-arrow" style="color:var(--cyan)">SUBSCRIBE ON YOUTUBE →</span>
+      </a>
+      <a class="connect-card" href="${soc.audiomack || '#'}" target="_blank" rel="noopener">
+        <h3>Audiomack</h3>
+        <p>Stream and download official mixtapes for offline listening anytime.</p>
+        <span class="connect-arrow" style="color:var(--amber)">STREAM ON AUDIOMACK →</span>
+      </a>
+    `;
+  }
+
+  // Populate Admin Site Form
+  document.getElementById('adminDjName').value = globalSiteInfo.djName || '';
+  document.getElementById('adminTagline').value = globalSiteInfo.tagline || '';
+  document.getElementById('adminLocation').value = globalSiteInfo.location || '';
+  document.getElementById('adminBookingEmail').value = globalSiteInfo.bookingEmail || '';
+  document.getElementById('adminBookingPhone').value = globalSiteInfo.bookingPhone || '';
+  document.getElementById('adminWhatsapp').value = globalSiteInfo.whatsappNumber || '';
+  if (globalSiteInfo.stats) {
+    document.getElementById('adminShows').value = globalSiteInfo.stats.showsDone || '250+';
+    document.getElementById('adminStreams').value = globalSiteInfo.stats.totalStreams || '150K+';
+    document.getElementById('adminCountries').value = globalSiteInfo.stats.countriesReached || '12';
+  }
+  if (globalSiteInfo.socials) {
+    document.getElementById('adminTiktok').value = globalSiteInfo.socials.tiktok || '';
+    document.getElementById('adminAudiomack').value = globalSiteInfo.socials.audiomack || '';
+    document.getElementById('adminYoutube').value = globalSiteInfo.socials.youtube || '';
+    document.getElementById('adminInstagram').value = globalSiteInfo.socials.instagram || '';
+  }
+  document.getElementById('adminBioText').value = globalSiteInfo.bio || '';
+}
+
+let activeGenre = 'ALL';
+let searchQuery = '';
+
+function renderTracksList() {
+  const container = document.getElementById('trackList');
+  if (!container) return;
+
+  let filtered = globalTracks.filter(t => {
+    const matchesGenre = activeGenre === 'ALL' || t.genre.toLowerCase().includes(activeGenre.toLowerCase());
+    const matchesSearch = !searchQuery || t.title.toLowerCase().includes(searchQuery.toLowerCase()) || t.genre.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesGenre && matchesSearch;
+  });
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="padding:40px; text-align:center; color:var(--text-dim);" class="mono">
+        No tracks found matching your search criteria.
+      </div>
+    `;
     return;
   }
 
-  stopActive();
-
-  const audioUrl = await resolveTrackAudioUrl(track);
-  if(!audioUrl){
-    console.error('Unable to resolve audio for track:', track.title);
-    return;
-  }
-
-  let audio = realAudioEls[index];
-  if(!audio || audio.src !== audioUrl){
-    audio = new Audio(audioUrl);
-    audio.preload = 'metadata';
-    realAudioEls[index] = audio;
-  }
-  if(restart) audio.currentTime = 0;
-  audio.play().catch(err => console.error('Playback failed:', err));
-
-  setPlayButtonState(index, 'playing');
-  const fill = document.querySelector(`.track-progress-fill[data-index="${index}"]`);
-  const timeEl = document.querySelector(`.track-time[data-index="${index}"]`);
-
-  function onTimeUpdate(){
-    const pct = audio.duration ? (audio.currentTime / audio.duration) * 100 : 0;
-    if(fill) fill.style.width = pct + '%';
-    if(timeEl) timeEl.textContent = formatTime(audio.duration - audio.currentTime);
-    updateNowPlayingTime();
-  }
-  audio.addEventListener('timeupdate', onTimeUpdate);
-  audio.addEventListener('ended', () => {
-    stopActiveVisual(index);
-    setPlayButtonState(index, 'paused');
-    activeTrack = null;
-    updateNowPlayingTime();
-  }, { once:true });
-
-  activeTrack = { index, audio, onTimeUpdate };
-  updateNowPlayingCard(track, index);
-}
-
-function stopTrack(index){
-  const audio = realAudioEls[index];
-  if(audio){
-    audio.pause();
-    audio.currentTime = 0;
-  }
-  const fill = document.querySelector(`.track-progress-fill[data-index="${index}"]`);
-  const timeEl = document.querySelector(`.track-time[data-index="${index}"]`);
-  if(fill) fill.style.width = '0%';
-  if(timeEl) timeEl.textContent = '--:--';
-  setPlayButtonState(index, 'paused');
-  if(activeTrack && activeTrack.index === index){
-    activeTrack.audio.removeEventListener('timeupdate', activeTrack.onTimeUpdate);
-    activeTrack = null;
-  }
-}
-
-async function downloadTrack(index){
-  const track = tracks[index];
-  if(!track) return;
-  const btn = document.querySelector(`.icon-btn[title="Download track"][onclick*="(${index})"]`);
-  const originalLabel = btn ? btn.textContent : null;
-  if(btn){ btn.textContent = '…'; btn.style.pointerEvents = 'none'; }
-
-  try{
-    let blob = null;
-    if(track.audioKey){
-      blob = await getFileBlob(track.audioKey);
-    }
-
-    if(blob){
-      const blobUrl = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = blobUrl;
-      a.download = track.title.replace(/\s+/g,'_') + '.mp3';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
-    } else {
-      const isCrossOrigin = /^https?:\/\//i.test(track.src);
-      if(isCrossOrigin){
-        const a = document.createElement('a');
-        a.href = track.src;
-        a.rel = 'noopener';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-      } else {
-        const res = await fetch(track.src);
-        if(!res.ok) throw new Error(`HTTP ${res.status}`);
-        const fetchedBlob = await res.blob();
-        const blobUrl = URL.createObjectURL(fetchedBlob);
-
-        const a = document.createElement('a');
-        a.href = blobUrl;
-        a.download = track.title.replace(/\s+/g,'_') + '.mp3';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(blobUrl), 4000);
-      }
-    }
-  }catch(err){
-    console.error('Download failed:', err);
-    alert("Sorry, that download didn't go through. Please try again in a moment.");
-  }finally{
-    if(btn){ btn.textContent = originalLabel; btn.style.pointerEvents = ''; }
-  }
-}
-
-function renderTracks(){
-  sortTracks();
-  trackListEl.innerHTML = tracks.map((t, i) => `
-    <div class="track">
-      <span class="track-idx mono">${String(i+1).padStart(2,'0')}</span>
-      <div class="track-info">
-        ${(t.coverUrl || t.cover) ? `<img class="track-thumb" src="${t.coverUrl || t.cover}" alt="${t.title} cover">` : ''}
-        <div>
-          <h3>${t.title}</h3>
-          <span>${t.genre}</span>
+  container.innerHTML = filtered.map((track, i) => {
+    const isPlaying = activeTrack && activeTrack.track.id === track.id && !activeTrack.audio.paused;
+    const coverUrl = track.cover || 'assets/favicon-512.png';
+    return `
+      <div class="track">
+        <span class="track-idx mono">${String(i + 1).padStart(2, '0')}</span>
+        <div class="track-info">
+          <img class="track-thumb" src="${coverUrl}" alt="Cover" onerror="this.src='assets/favicon-512.png'">
+          <div class="track-meta">
+            <h3>${track.title}</h3>
+            <span>${track.genre} · ${track.date || ''}</span>
+          </div>
+        </div>
+        <div class="track-stats">
+          ▶ ${(track.plays || 0).toLocaleString()} <br> ⬇ ${(track.downloads || 0).toLocaleString()}
+        </div>
+        <div class="track-progress"><div class="track-progress-fill" id="fill-${track.id}"></div></div>
+        <div class="track-actions" style="display:flex; gap:8px;">
+          <button class="icon-btn play ${isPlaying ? 'is-playing' : ''}" onclick="togglePlayTrack('${track.id}')" title="Play/Pause">
+            ${isPlaying ? '⏸' : '▶'}
+          </button>
+          <button class="icon-btn" onclick="downloadTrack('${track.id}')" title="Download">⬇</button>
         </div>
       </div>
-      <div class="track-progress"><div class="track-progress-fill" data-index="${i}"></div></div>
-      <span class="track-time mono" data-index="${i}">--:--</span>
-      <div style="display:flex; gap:10px;">
-        <button class="icon-btn play" data-index="${i}" title="Play track" onclick="playTrack(${i})">▶</button>
-        <button class="icon-btn stop" data-index="${i}" title="Stop track" onclick="stopTrack(${i})">■</button>
-        <button class="icon-btn" title="Download track" onclick="downloadTrack(${i})">⬇</button>
-      </div>
-    </div>
-  `).join('') + `
-    <div class="track track-coming-soon">
-      <span class="track-idx mono">${String(tracks.length+1).padStart(2,'0')}</span>
-      <div class="track-info">
-        <h3>More tracks dropping soon</h3>
-        <span>Follow @djwalkerug0 to hear it first</span>
-      </div>
-    </div>
-  `;
+    `;
+  }).join('');
 }
 
-async function preloadTrackDurations(){
-  for(const [i, track] of tracks.entries()){
-    if(!realAudioEls[i]){
-      const audioUrl = await resolveTrackAudioUrl(track);
-      if(!audioUrl) continue;
-      const audio = new Audio(audioUrl);
-      audio.preload = 'metadata';
-      realAudioEls[i] = audio;
+// ---------- PLAYER LOGIC ----------
+function togglePlayTrack(trackId) {
+  const track = globalTracks.find(t => t.id === trackId);
+  if (!track) return;
+
+  if (activeTrack && activeTrack.track.id === trackId) {
+    if (activeTrack.audio.paused) {
+      activeTrack.audio.play();
+    } else {
+      activeTrack.audio.pause();
     }
-    const audio = realAudioEls[i];
-    audio.addEventListener('loadedmetadata', () => {
-      const timeEl = document.querySelector(`.track-time[data-index="${i}"]`);
-      if(timeEl && !(activeTrack && activeTrack.index === i)) timeEl.textContent = formatTime(audio.duration);
-    }, { once:true });
+    updatePlayerUI();
+    renderTracksList();
+    return;
+  }
+
+  // Stop previous track
+  if (activeTrack) {
+    activeTrack.audio.pause();
+  }
+
+  const audio = new Audio(track.src);
+  audio.play().catch(err => {
+    console.error('Audio play error:', err);
+    showToast(`Could not play "${track.title}". Please verify audio link.`, 'error');
+  });
+
+  // Track play count
+  fetch(`/api/tracks/${track.id}/stat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'play' })
+  }).catch(() => {});
+
+  activeTrack = {
+    track,
+    audio,
+    onTimeUpdate: () => {
+      const current = audio.currentTime || 0;
+      const duration = audio.duration || 0;
+      const pct = duration ? (current / duration) * 100 : 0;
+
+      document.getElementById('playerProgress').value = pct;
+      document.getElementById('playerCurrentTime').textContent = formatTime(current);
+      document.getElementById('playerDuration').textContent = formatTime(duration);
+
+      const fill = document.getElementById(`fill-${track.id}`);
+      if (fill) fill.style.width = `${pct}%`;
+    }
+  };
+
+  audio.addEventListener('timeupdate', activeTrack.onTimeUpdate);
+  audio.addEventListener('pause', () => { updatePlayerUI(); renderTracksList(); });
+  audio.addEventListener('play', () => { updatePlayerUI(); renderTracksList(); });
+  audio.addEventListener('ended', () => { updatePlayerUI(); renderTracksList(); });
+
+  updatePlayerUI();
+  renderTracksList();
+}
+
+function updatePlayerUI() {
+  const player = document.getElementById('fixedPlayer');
+  if (!activeTrack) {
+    player.classList.add('hidden-player');
+    return;
+  }
+
+  player.classList.remove('hidden-player');
+  document.getElementById('playerCover').src = activeTrack.track.cover || 'assets/favicon-512.png';
+  document.getElementById('playerTitle').textContent = activeTrack.track.title;
+  document.getElementById('playerGenre').textContent = activeTrack.track.genre;
+
+  const playBtn = document.getElementById('playerPlayPause');
+  playBtn.textContent = activeTrack.audio.paused ? '▶' : '⏸';
+}
+
+function formatTime(sec) {
+  if (!isFinite(sec) || sec < 0) return '0:00';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+async function downloadTrack(trackId) {
+  const track = globalTracks.find(t => t.id === trackId);
+  if (!track) return;
+
+  fetch(`/api/tracks/${track.id}/stat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: 'download' })
+  }).catch(() => {});
+
+  showToast(`Starting download for "${track.title}"...`, 'info');
+
+  const a = document.createElement('a');
+  a.href = track.src;
+  a.download = `${track.title.replace(/\s+/g, '_')}.mp3`;
+  a.target = '_blank';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ---------- BOOKING FORM SUBMISSION ----------
+function toggleOtherEventType(val) {
+  const otherGroup = document.getElementById('bookTypeOtherGroup');
+  const otherInput = document.getElementById('bookTypeOther');
+  if (!otherGroup || !otherInput) return;
+  if (val === 'Other Event') {
+    otherGroup.style.display = 'block';
+    otherInput.required = true;
+    otherInput.focus();
+  } else {
+    otherGroup.style.display = 'none';
+    otherInput.required = false;
+    otherInput.value = '';
   }
 }
 
-function setAdminMessage(msg, tone='info'){
-  adminStatusEl.textContent = msg;
-  adminStatusEl.style.color = tone === 'error' ? 'var(--magenta)' : tone === 'success' ? 'var(--cyan)' : 'var(--text-dim)';
+document.getElementById('bookingForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  let eventType = document.getElementById('bookType').value;
+  if (eventType === 'Other Event') {
+    const customType = document.getElementById('bookTypeOther').value.trim();
+    if (customType) {
+      eventType = `Other (${customType})`;
+    }
+  }
+
+  const data = {
+    name: document.getElementById('bookName').value,
+    phone: document.getElementById('bookPhone').value,
+    email: document.getElementById('bookEmail').value,
+    eventType: eventType,
+    eventDate: document.getElementById('bookDate').value,
+    eventTime: document.getElementById('bookTime').value,
+    location: document.getElementById('bookLocation').value,
+    notes: document.getElementById('bookNotes').value
+  };
+
+  try {
+    const res = await fetch('/api/bookings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    if (res.ok) {
+      const resData = await res.json();
+      if (resData.booking) {
+        saveMyBooking(resData.booking);
+      }
+      showToast('Booking request sent successfully! DJ Walker will contact you shortly.', 'success');
+      document.getElementById('bookingForm').reset();
+      toggleOtherEventType('Club Night / Gig');
+      fetchBookings(true);
+    } else {
+      showToast('Failed to send booking request. Please try again.', 'error');
+    }
+  } catch (err) {
+    showToast('Network error while sending booking.', 'error');
+  }
+});
+
+// ---------- ADMIN PORTAL LOGIC ----------
+function prepareAddNewTrack() {
+  cancelAdminTrackEdit();
+  document.getElementById('adminTrackTitle').focus();
+  document.getElementById('adminTrackForm').scrollIntoView({ behavior: 'smooth' });
 }
 
-function resetAdminForm(){
-  editingIndex = null;
-  adminTrackForm.reset();
-  if(adminTrackAudioEl) adminTrackAudioEl.value = '';
-  if(adminTrackCoverFileEl) adminTrackCoverFileEl.value = '';
-  setAdminMessage('Add or edit track details below.');
-}
+function renderAdminTracks() {
+  const list = document.getElementById('adminTracksList');
+  if (!list) return;
 
-function populateAdminForm(index){
-  const track = tracks[index];
-  if(!track) return;
-  editingIndex = index;
-  document.getElementById('adminTrackTitle').value = track.title;
-  document.getElementById('adminTrackGenre').value = track.genre;
-  document.getElementById('adminTrackDate').value = track.date;
-  if(adminTrackAudioEl) adminTrackAudioEl.value = '';
-  if(adminTrackCoverFileEl) adminTrackCoverFileEl.value = '';
-  setAdminMessage(`Editing “${track.title}”. Leave audio or cover blank to keep the current files.`);
-}
+  if (!globalTracks || globalTracks.length === 0) {
+    list.innerHTML = `<div style="text-align:center; padding:30px; color:var(--text-dim); background:rgba(255,255,255,0.02); border:1px dashed rgba(255,255,255,0.1); border-radius:8px;">No releases found. Use the form to add a new track!</div>`;
+    return;
+  }
 
-function renderAdminTracks(){
-  if(!adminTrackListEl) return;
-  adminTrackListEl.innerHTML = tracks.map((track, index) => `
-    <div class="admin-track-item">
-      <div class="admin-track-meta">
-        <strong>${track.title}</strong>
-        <span>${track.genre} · ${track.date}</span>
+  list.innerHTML = globalTracks.map(t => `
+    <div class="admin-track-item" style="display:flex; justify-content:space-between; align-items:center; padding:12px 16px; margin-bottom:10px; background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:8px; gap:12px;">
+      <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+        ${t.cover ? `<img src="${t.cover}" style="width:44px; height:44px; border-radius:6px; object-fit:cover; flex-shrink:0;" onerror="this.style.display='none'">` : '<div style="width:44px; height:44px; border-radius:6px; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0;">🎵</div>'}
+        <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+          <strong style="font-size:15px; color:var(--text);">${t.title}</strong>
+          <span style="font-size:12px; color:var(--accent); margin-left:6px;">(${t.artist || 'DJ Walker UG'})</span><br>
+          <span class="mono" style="font-size:12px; color:var(--text-dim);">${t.genre || 'Single'} ${t.date ? '· ' + t.date : ''}</span>
+        </div>
       </div>
-      <div class="admin-track-actions">
-        <button class="admin-btn" type="button" onclick="populateAdminForm(${index})">Edit</button>
-        <button class="admin-btn danger" type="button" onclick="deleteTrack(${index})">Delete</button>
+      <div class="admin-track-actions" style="display:flex; gap:6px; flex-shrink:0;">
+        <button class="btn" style="padding:6px 12px; font-size:12px;" onclick="editAdminTrack('${t.id}')">Edit</button>
+        <button class="btn" style="padding:6px 12px; font-size:12px; border-color:var(--magenta); color:var(--magenta);" onclick="deleteAdminTrack('${t.id}', this)">Delete</button>
       </div>
     </div>
   `).join('');
 }
 
-function openAdminPanel(){
-  if(isAdminUnlocked){
-    adminPanel.hidden = false;
-    adminPanel.scrollIntoView({ behavior:'smooth', block:'start' });
+function editAdminTrack(trackId) {
+  const track = globalTracks.find(t => t.id === trackId);
+  if (!track) return;
+
+  document.getElementById('adminTrackId').value = track.id;
+  document.getElementById('adminTrackTitle').value = track.title || '';
+  const artistInput = document.getElementById('adminTrackArtist');
+  if (artistInput) artistInput.value = track.artist || 'DJ Walker UG';
+  document.getElementById('adminTrackGenre').value = track.genre || '';
+  document.getElementById('adminTrackSrc').value = track.src || '';
+  document.getElementById('adminTrackCover').value = track.cover || '';
+  document.getElementById('adminTrackDate').value = track.date || '';
+  
+  document.getElementById('adminFormHeader').textContent = `Editing: ${track.title}`;
+  const submitBtn = document.getElementById('adminSubmitTrackBtn');
+  if (submitBtn) submitBtn.textContent = '💾 Update Track';
+  document.getElementById('adminTrackForm').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function deleteAdminTrack(trackId, btnElement) {
+  // Inline confirmation for safety in all browser contexts (including iframe sandboxes)
+  if (btnElement && btnElement.dataset.confirming !== 'true') {
+    btnElement.dataset.confirming = 'true';
+    const origText = btnElement.innerHTML;
+    btnElement.innerHTML = '⚠️ Click to Confirm';
+    btnElement.style.background = 'var(--magenta)';
+    btnElement.style.color = '#ffffff';
+    
+    setTimeout(() => {
+      if (btnElement && btnElement.dataset.confirming === 'true') {
+        delete btnElement.dataset.confirming;
+        btnElement.innerHTML = origText;
+        btnElement.style.background = '';
+        btnElement.style.color = 'var(--magenta)';
+      }
+    }, 4000);
     return;
   }
 
-  const enteredPassword = prompt('Enter admin password');
-  if(enteredPassword === ADMIN_PASSWORD){
-    isAdminUnlocked = true;
-    sessionStorage.setItem('djwalker_admin_unlocked', 'true');
-    adminPanel.hidden = false;
-    adminPanel.scrollIntoView({ behavior:'smooth', block:'start' });
-    setAdminMessage('Admin unlocked. You can manage tracks now.');
-  } else if(enteredPassword !== null){
-    alert('Wrong password. Only the site owner can access this panel.');
+  showToast('Deleting release globally...', 'info');
+
+  try {
+    const res = await fetch(`/api/tracks/${encodeURIComponent(trackId)}`, { method: 'DELETE' });
+    if (res.ok) {
+      showToast('Track deleted globally!', 'success');
+      // If currently editing this track, reset form
+      if (document.getElementById('adminTrackId').value === trackId) {
+        cancelAdminTrackEdit();
+      }
+      fetchTracks();
+    } else {
+      showToast('Failed to delete track.', 'error');
+    }
+  } catch (err) {
+    console.error('Delete error:', err);
+    showToast('Failed to delete track.', 'error');
   }
 }
 
-function deleteTrack(index){
-  if(!tracks[index]) return;
-  const track = tracks[index];
-  const trackTitle = track.title;
-  if(!confirm(`Delete “${trackTitle}”?`)) return;
-  if(track.audioKey){
-    deleteFileBlob(track.audioKey).catch(() => {});
+document.getElementById('adminTrackForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const trackId = document.getElementById('adminTrackId').value;
+  const title = document.getElementById('adminTrackTitle').value.trim();
+  const artistInput = document.getElementById('adminTrackArtist');
+  const artist = artistInput ? artistInput.value.trim() || 'DJ Walker UG' : 'DJ Walker UG';
+  const genre = document.getElementById('adminTrackGenre').value.trim();
+  let src = document.getElementById('adminTrackSrc').value.trim();
+  let cover = document.getElementById('adminTrackCover').value.trim();
+  const date = document.getElementById('adminTrackDate').value;
+
+  const audioFile = document.getElementById('adminTrackAudioFile').files[0];
+  const coverFile = document.getElementById('adminTrackCoverFile').files[0];
+
+  if (!audioFile && !src && !trackId) {
+    showToast('Please attach an audio MP3 file or provide an audio URL.', 'error');
+    return;
   }
-  if(track.coverKey){
-    deleteFileBlob(track.coverKey).catch(() => {});
+
+  showToast('Processing release and saving globally...', 'info');
+
+  // Handle audio file upload if provided
+  if (audioFile) {
+    const audioForm = new FormData();
+    audioForm.append('file', audioFile);
+    try {
+      const upRes = await fetch('/api/upload', { method: 'POST', body: audioForm });
+      if (upRes.ok) {
+        const upData = await upRes.json();
+        src = upData.fileUrl;
+      } else {
+        showToast('Audio file upload failed.', 'error');
+        return;
+      }
+    } catch (err) {
+      showToast('Audio upload network error.', 'error');
+      return;
+    }
   }
-  tracks.splice(index, 1);
-  saveTracks();
-  renderTracks();
-  renderAdminTracks();
-  if(editingIndex === index){
-    resetAdminForm();
-  } else if(editingIndex !== null && editingIndex > index){
-    editingIndex -= 1;
+
+  // Handle cover image upload if provided
+  if (coverFile) {
+    const coverForm = new FormData();
+    coverForm.append('file', coverFile);
+    try {
+      const upRes = await fetch('/api/upload', { method: 'POST', body: coverForm });
+      if (upRes.ok) {
+        const upData = await upRes.json();
+        cover = upData.fileUrl;
+      } else {
+        showToast('Cover image upload failed.', 'error');
+        return;
+      }
+    } catch (err) {
+      showToast('Cover image network error.', 'error');
+      return;
+    }
   }
-  setAdminMessage(`Deleted “${trackTitle}”.`);
+
+  const payload = { title, artist, genre, src, cover, date };
+  const method = trackId ? 'PUT' : 'POST';
+  const url = trackId ? `/api/tracks/${trackId}` : '/api/tracks';
+
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+      showToast(trackId ? 'Track updated globally!' : 'New track added globally!', 'success');
+      cancelAdminTrackEdit();
+      fetchTracks();
+    } else {
+      showToast('Failed to save release. Please try again.', 'error');
+    }
+  } catch (err) {
+    showToast('Failed to save release globally.', 'error');
+  }
+});
+
+function cancelAdminTrackEdit() {
+  document.getElementById('adminTrackForm').reset();
+  document.getElementById('adminTrackId').value = '';
+  document.getElementById('adminTrackSrc').value = '';
+  document.getElementById('adminTrackCover').value = '';
+  document.getElementById('adminTrackAudioFile').value = '';
+  document.getElementById('adminTrackCoverFile').value = '';
+  const artistInput = document.getElementById('adminTrackArtist');
+  if (artistInput) artistInput.value = 'DJ Walker UG';
+  document.getElementById('adminFormHeader').textContent = 'Add New Release';
+  const submitBtn = document.getElementById('adminSubmitTrackBtn');
+  if (submitBtn) submitBtn.textContent = '➕ Add Track';
 }
 
-adminTrackForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const formData = new FormData(adminTrackForm);
-  const title = String(formData.get('title') || '').trim();
-  const genre = String(formData.get('genre') || '').trim();
-  const date = String(formData.get('date') || '').trim();
-  const audioFile = adminTrackAudioEl?.files?.[0] || null;
-  const coverFile = adminTrackCoverFileEl?.files?.[0] || null;
+function enterAdminMode() {
+  document.body.classList.add('admin-mode-active');
+  const adminSec = document.getElementById('admin');
+  if (adminSec) adminSec.hidden = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-  if(!title || !genre || !date){
-    setAdminMessage('Please fill in title, genre, and date.', 'error');
-    return;
-  }
+function exitAdminMode() {
+  document.body.classList.remove('admin-mode-active');
+  const adminSec = document.getElementById('admin');
+  if (adminSec) adminSec.hidden = true;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
-  const existing = editingIndex !== null ? tracks[editingIndex] : null;
-  if(!existing && !audioFile){
-    setAdminMessage('Upload an audio file when adding a new track.', 'error');
-    return;
-  }
+document.getElementById('adminCancelBtn').addEventListener('click', () => {
+  cancelAdminTrackEdit();
+  exitAdminMode();
+  showToast('Cancelled and returned to main page.', 'info');
+});
 
-  const trackId = existing?.id || generateId();
-  let audioKey = existing?.audioKey || null;
-  let coverKey = existing?.coverKey || null;
-  let src = existing?.src || '';
-  let cover = existing?.cover || '';
-  let audioUrl = existing?.audioUrl || null;
-  let coverUrl = existing?.coverUrl || null;
-
-  if(audioFile){
-      if(audioKey){
-        await deleteFileBlob(audioKey).catch(() => {});
-      }
-      audioKey = `audio-${trackId}-${generateId()}`;
-      await saveFileBlob(audioKey, audioFile);
-      src = audioFile.name;
-      audioUrl = getObjectUrl(audioKey, audioFile);
-    }
-
-    if(coverFile){
-      if(coverKey){
-        await deleteFileBlob(coverKey).catch(() => {});
-      }
-      coverKey = `cover-${trackId}-${generateId()}`;
-      cover = '';
-      await saveFileBlob(coverKey, coverFile);
-      coverUrl = getObjectUrl(coverKey, coverFile);
-    }
-
-  const trackData = {
-    id: trackId,
-    title,
-    genre,
-    date,
-    src,
-    cover,
-    coverKey,
-    audioKey,
-    audioUrl,
-    coverUrl,
+// Save Site Settings Globally
+document.getElementById('adminSiteForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const payload = {
+    djName: document.getElementById('adminDjName').value,
+    tagline: document.getElementById('adminTagline').value,
+    location: document.getElementById('adminLocation').value,
+    bookingEmail: document.getElementById('adminBookingEmail').value,
+    bookingPhone: document.getElementById('adminBookingPhone').value,
+    whatsappNumber: document.getElementById('adminWhatsapp').value,
+    stats: {
+      showsDone: document.getElementById('adminShows').value,
+      totalStreams: document.getElementById('adminStreams').value,
+      countriesReached: document.getElementById('adminCountries').value
+    },
+    socials: {
+      tiktok: document.getElementById('adminTiktok').value,
+      audiomack: document.getElementById('adminAudiomack').value,
+      youtube: document.getElementById('adminYoutube').value,
+      instagram: document.getElementById('adminInstagram').value,
+      spotify: globalSiteInfo.socials?.spotify || 'https://spotify.com',
+      twitter: globalSiteInfo.socials?.twitter || 'https://twitter.com/djwalkerug'
+    },
+    bio: document.getElementById('adminBioText').value
   };
 
-  if(existing){
-    tracks[editingIndex] = trackData;
-    setAdminMessage(`Updated “${title}”.`, 'success');
-  } else {
-    tracks.push(trackData);
-    setAdminMessage(`Added “${title}”.`, 'success');
-  }
+  try {
+    const res = await fetch('/api/site-info', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
 
-  saveTracks();
-  renderTracks();
-  renderAdminTracks();
-  resetAdminForm();
+    if (res.ok) {
+      showToast('Site settings updated globally!', 'success');
+      fetchSiteInfo();
+    }
+  } catch (err) {
+    showToast('Failed to update site settings.', 'error');
+  }
 });
 
-adminCancelBtn.addEventListener('click', resetAdminForm);
-if(adminExitBtn){
-  adminExitBtn.addEventListener('click', () => {
-    adminPanel.hidden = true;
-    setAdminMessage('Admin closed. Reopen with the admin link when ready.');
+let globalBookings = [];
+
+async function fetchBookings(silent = false) {
+  try {
+    const res = await fetch('/api/bookings');
+    if (res.ok) {
+      const data = await res.json();
+      globalBookings = data;
+      renderBookings(globalBookings);
+    }
+  } catch (err) {
+    if (!silent) console.error('Error fetching bookings:', err);
+  }
+}
+
+// --- Client Real-time Tracker & Notification Functions ---
+function getMyBookings() {
+  try {
+    return JSON.parse(localStorage.getItem('djwalker_my_bookings') || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveMyBooking(booking) {
+  try {
+    let list = getMyBookings();
+    list = list.filter(b => b.id !== booking.id);
+    list.unshift(booking);
+    localStorage.setItem('djwalker_my_bookings', JSON.stringify(list));
+    renderUserBookingTracker();
+  } catch (e) {}
+}
+
+function removeMyBooking(bookingId) {
+  let myBookings = getMyBookings();
+  myBookings = myBookings.filter(b => b.id !== bookingId);
+  localStorage.setItem('djwalker_my_bookings', JSON.stringify(myBookings));
+  renderUserBookingTracker();
+  fetch('/api/bookings/' + bookingId, { method: 'DELETE' }).catch(() => {});
+  showToast('Booking removed from your tracker.', 'info');
+}
+
+function clearMyFinishedBookings() {
+  let myBookings = getMyBookings();
+  const finished = myBookings.filter(b => b.status === 'Done' || b.status === 'Declined' || b.status === 'Completed');
+  const remaining = myBookings.filter(b => b.status !== 'Done' && b.status !== 'Declined' && b.status !== 'Completed');
+  
+  localStorage.setItem('djwalker_my_bookings', JSON.stringify(remaining));
+  renderUserBookingTracker();
+
+  finished.forEach(b => {
+    fetch('/api/bookings/' + b.id, { method: 'DELETE' }).catch(() => {});
   });
+
+  showToast(`Removed ${finished.length} finished booking(s) from your tracker.`, 'success');
 }
-adminLink.addEventListener('click', (event) => {
-  event.preventDefault();
-  openAdminPanel();
+
+function renderUserBookingTracker() {
+  const container = document.getElementById('userBookingTrackerContainer');
+  if (!container) return;
+
+  const myBookings = getMyBookings();
+  if (myBookings.length === 0) {
+    container.innerHTML = '';
+    return;
+  }
+
+  const hasFinished = myBookings.some(b => b.status === 'Done' || b.status === 'Declined' || b.status === 'Completed');
+
+  container.innerHTML = `
+    <div class="booking-card" style="border-color:var(--cyan); background:rgba(0, 210, 255, 0.04); padding:20px; box-shadow:0 10px 30px rgba(0,210,255,0.15);">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px; border-bottom:1px solid var(--line); padding-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:22px;">⚡</span>
+          <strong style="font-size:15px; color:var(--cyan); letter-spacing:0.5px; font-family:'Space Mono', monospace;">YOUR REAL-TIME BOOKING STATUS</strong>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          ${hasFinished ? `
+            <button onclick="clearMyFinishedBookings()" class="btn" style="font-size:11px; padding:4px 10px; border-color:var(--magenta); color:var(--magenta); background:rgba(255, 0, 128, 0.08);">
+              🧹 Clear Done & Declined
+            </button>
+          ` : ''}
+          <span class="mono" style="font-size:11px; background:rgba(0,210,255,0.15); color:var(--cyan); padding:4px 10px; border-radius:999px; border:1px solid var(--cyan);">Live Stream Connected 🟢</span>
+        </div>
+      </div>
+      <div>
+        ${myBookings.map(b => {
+          const isFinished = b.status === 'Done' || b.status === 'Declined' || b.status === 'Completed';
+          const statusClass = b.status === 'Confirmed' ? 'badge-confirmed' :
+                              b.status === 'Contacted' ? 'badge-contacted' :
+                              b.status === 'Done' ? 'badge-done' :
+                              b.status === 'Declined' ? 'badge-declined' : 'badge-pending';
+          const icon = b.status === 'Confirmed' ? '🟢' :
+                       b.status === 'Contacted' ? '🔵' :
+                       b.status === 'Done' ? '🏁' :
+                       b.status === 'Declined' ? '🔴' : '🟡';
+          return `
+            <div style="background:var(--bg); border:1px solid var(--line); padding:14px; border-radius:12px; margin-bottom:10px;">
+              <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div>
+                  <div style="font-size:15px; font-weight:bold; color:var(--text);">${b.eventType} @ ${b.location}</div>
+                  <div class="mono" style="font-size:12px; color:var(--text-dim); margin-top:2px;">Event Date &amp; Time: <strong style="color:var(--cyan);">${b.eventDate}${b.eventTime ? ' @ ' + b.eventTime : ''}</strong></div>
+                </div>
+                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                  <span class="badge ${statusClass}" style="font-size:12px; padding:6px 12px;">${icon} ${b.status || 'Pending'}</span>
+                  ${isFinished ? `
+                    <button onclick="removeMyBooking('${b.id}')" title="Remove from your status tracker" class="btn" style="padding:4px 8px; font-size:11px; border-color:var(--line); color:var(--text-dim); background:rgba(255,255,255,0.05);">
+                      🗑️ Remove
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+              ${b.status === 'Confirmed' || b.status === 'Contacted' || b.status === 'Done' ? `
+                <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                  <span style="font-size:12px; color:var(--text-dim);">Coordinate with DJ Walker:</span>
+                  <a href="https://wa.me/256759924353?text=${encodeURIComponent('Hi DJ Walker, this is ' + (b.name || 'a client') + ' regarding my ' + (b.status || 'Pending') + ' booking for ' + b.eventType + ' on ' + b.eventDate + (b.eventTime ? ' at ' + b.eventTime : ''))}" target="_blank" rel="noopener" class="btn" style="padding:4px 10px; font-size:12px; background:#25D366; color:#000; font-weight:bold;">💬 WhatsApp</a>
+                  <a href="tel:0759924353" class="btn" style="padding:4px 10px; font-size:12px;">📞 Call Direct</a>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function playClientStatusChime(status) {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    if (status === 'Confirmed') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(1108.73, ctx.currentTime + 0.25);
+    } else if (status === 'Contacted') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.2);
+    } else {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(330, ctx.currentTime + 0.2);
+    }
+
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.4);
+  } catch (e) {}
+}
+
+function showClientRealtimeModal(booking) {
+  const modal = document.getElementById('clientStatusModal');
+  if (!modal) return;
+
+  const icon = booking.status === 'Confirmed' ? '🎉' :
+               booking.status === 'Contacted' ? '💬' :
+               booking.status === 'Done' ? '🏁' :
+               booking.status === 'Declined' ? 'ℹ️' : '🟡';
+
+  const badgeClass = booking.status === 'Confirmed' ? 'badge-confirmed' :
+                     booking.status === 'Contacted' ? 'badge-contacted' :
+                     booking.status === 'Done' ? 'badge-done' :
+                     booking.status === 'Declined' ? 'badge-declined' : 'badge-pending';
+
+  const heading = booking.status === 'Confirmed' ? 'YOUR BOOKING IS CONFIRMED!' :
+                  booking.status === 'Contacted' ? 'DJ WALKER REPLIED TO YOUR BOOKING!' :
+                  booking.status === 'Done' ? 'YOUR BOOKING IS COMPLETED!' :
+                  booking.status === 'Declined' ? 'BOOKING REQUEST DECLINED' : 'BOOKING STATUS UPDATED';
+
+  const desc = booking.status === 'Confirmed' ? 'DJ Walker UG has officially confirmed your event! Get ready for an incredible performance.' :
+               booking.status === 'Contacted' ? 'DJ Walker UG has marked your booking as contacted. Reach out directly on WhatsApp or Phone below.' :
+               booking.status === 'Done' ? 'DJ Walker UG has marked your event booking as completed. Thank you for booking with DJ Walker UG!' :
+               booking.status === 'Declined' ? 'Unfortunately DJ Walker UG is unavailable for this specific date/slot.' : 'Your booking status was updated in real time.';
+
+  document.getElementById('clientStatusIcon').textContent = icon;
+  const badgeEl = document.getElementById('clientStatusBadge');
+  if (badgeEl) {
+    badgeEl.className = `badge ${badgeClass}`;
+    badgeEl.textContent = booking.status || 'Pending';
+  }
+
+  document.getElementById('clientStatusHeading').textContent = heading;
+  document.getElementById('clientStatusDesc').textContent = desc;
+
+  document.getElementById('clientStatusName').textContent = booking.name || 'Client';
+  const timeStr = booking.eventTime ? ` @ ${booking.eventTime}` : '';
+  document.getElementById('clientStatusDate').textContent = `${booking.eventDate || 'TBD'}${timeStr} (${booking.eventType || 'Event'})`;
+  document.getElementById('clientStatusLocation').textContent = booking.location || 'Uganda';
+
+  const whatsappBtn = document.getElementById('clientStatusWhatsappBtn');
+  if (whatsappBtn) {
+    const clientName = booking.name || 'a client';
+    whatsappBtn.href = `https://wa.me/256759924353?text=${encodeURIComponent('Hi DJ Walker, this is ' + clientName + ' regarding my ' + (booking.status || 'Pending') + ' booking for ' + booking.eventType + ' on ' + booking.eventDate + (booking.eventTime ? ' at ' + booking.eventTime : ''))}`;
+  }
+
+  modal.style.display = 'flex';
+  playClientStatusChime(booking.status);
+}
+
+document.getElementById('closeClientStatusModalBtn')?.addEventListener('click', () => {
+  const m = document.getElementById('clientStatusModal');
+  if (m) m.style.display = 'none';
+});
+document.getElementById('clientStatusCloseBtn')?.addEventListener('click', () => {
+  const m = document.getElementById('clientStatusModal');
+  if (m) m.style.display = 'none';
 });
 
-if(!isAdminUnlocked){
-  adminPanel.hidden = true;
-} else {
-  adminPanel.hidden = false;
+// Real-Time SSE Connection for Instant Booking Notifications
+let bookingEventSource = null;
+
+function playBookingAlertChime() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.18); // A5
+    
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+    
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.35);
+  } catch (e) {
+    // Web Audio blocked or unsupported
+  }
 }
 
-async function hydrateTrackUrls(){
-  await Promise.all(tracks.map(async (track) => {
-    if(track.coverKey && !track.coverUrl){
-      track.coverUrl = await resolveTrackCoverUrl(track);
-    }
-    if(track.audioKey && !track.audioUrl){
-      track.audioUrl = await resolveTrackAudioUrl(track);
-    }
-  }));
+function initRealtimeBookings() {
+  if (bookingEventSource) return;
+  try {
+    bookingEventSource = new EventSource('/api/bookings/stream');
+    
+    bookingEventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'NEW_BOOKING') {
+          showToast(`🚨 REAL-TIME BOOKING: ${data.booking.name} (${data.booking.eventType})`, 'success');
+          playBookingAlertChime();
+          fetchBookings(true);
+        } else if (data.type === 'DELETE_BOOKING') {
+          fetchBookings(true);
+          let myBookings = getMyBookings();
+          if (myBookings.some(b => b.id === data.id)) {
+            myBookings = myBookings.filter(b => b.id !== data.id);
+            localStorage.setItem('djwalker_my_bookings', JSON.stringify(myBookings));
+            renderUserBookingTracker();
+          }
+        } else if (data.type === 'UPDATE_BOOKING') {
+          if (isAdminUnlocked) {
+            fetchBookings(true);
+          }
+          const updated = data.booking;
+          let myBookings = getMyBookings();
+          const matchIndex = myBookings.findIndex(b => b.id === updated.id);
+          
+          if (matchIndex !== -1) {
+            const oldStatus = myBookings[matchIndex].status;
+            myBookings[matchIndex] = updated;
+            localStorage.setItem('djwalker_my_bookings', JSON.stringify(myBookings));
+            renderUserBookingTracker();
+
+            if (oldStatus !== updated.status) {
+              showClientRealtimeModal(updated);
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error parsing booking SSE data:', err);
+      }
+    };
+
+    bookingEventSource.onerror = () => {
+      // Reconnect handled automatically by EventSource
+    };
+  } catch (err) {
+    console.error('Failed to initialize EventSource:', err);
+  }
 }
 
-previewBtn.addEventListener('click', () => {
-  if(activeTrack){
-    previewNowPlaying();
+// Background sync backup every 4 seconds
+setInterval(() => {
+  if (isAdminUnlocked) {
+    fetchBookings(true);
+  }
+}, 4000);
+
+let currentDetailBookingId = null;
+
+function renderBookings(bookings) {
+  document.getElementById('bookingCount').textContent = bookings.length;
+  const container = document.getElementById('adminBookingsList');
+  if (!container) return;
+
+  if (bookings.length === 0) {
+    container.innerHTML = `<div class="mono" style="color:var(--text-dim); padding:20px;">No booking requests received yet.</div>`;
+    closeBookingDetailsModal();
+    return;
+  }
+
+  container.innerHTML = bookings.map(b => {
+    const statusClass = b.status === 'Confirmed' ? 'badge-confirmed' :
+                        b.status === 'Contacted' ? 'badge-contacted' :
+                        b.status === 'Done' ? 'badge-done' :
+                        b.status === 'Declined' ? 'badge-declined' : 'badge-pending';
+    return `
+      <div class="booking-card" style="margin-bottom:16px; padding:20px; cursor:pointer; transition:all 0.2s ease; border-color:var(--line);" onclick="openBookingDetails('${b.id}')">
+        <div style="display:flex; justify-content:space-between; align-items:start; gap:12px;">
+          <div>
+            <h3 style="font-size:18px; margin-bottom:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+              ${b.name} <span class="badge ${statusClass}">${b.status || 'Pending'}</span>
+            </h3>
+            <span class="mono" style="font-size:12px; color:var(--text-dim);">${b.eventType} · ${b.eventDate}${b.eventTime ? ' (' + b.eventTime + ')' : ''} @ ${b.location}</span>
+          </div>
+          <div style="display:flex; gap:6px;" onclick="event.stopPropagation()">
+            <button class="btn" style="padding:6px 12px; font-size:12px; border-color:var(--violet); color:var(--violet);" onclick="openBookingDetails('${b.id}')">👁️ Details</button>
+            <button class="btn" style="padding:6px 12px; font-size:12px; border-color:var(--magenta); color:var(--magenta);" onclick="deleteBooking('${b.id}', this)">Delete</button>
+          </div>
+        </div>
+        <div style="margin-top:12px; font-size:13px; color:var(--text-dim); display:flex; flex-wrap:wrap; gap:16px;">
+          <span>📞 Phone: <strong style="color:var(--text);">${b.phone}</strong></span>
+          <span>✉️ Email: <strong style="color:var(--text);">${b.email || 'N/A'}</strong></span>
+        </div>
+        ${b.notes ? `<p style="margin-top:10px; font-size:13px; color:var(--text); background:var(--bg); padding:10px 12px; border-radius:8px; border:1px solid var(--line); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${b.notes}"</p>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  if (currentDetailBookingId) {
+    const stillExists = bookings.find(b => b.id === currentDetailBookingId);
+    if (stillExists) {
+      openBookingDetails(currentDetailBookingId, false);
+    } else {
+      closeBookingDetailsModal();
+    }
+  }
+}
+
+function openBookingDetails(bookingId, autoOpen = true) {
+  const booking = globalBookings.find(b => b.id === bookingId);
+  if (!booking) return;
+
+  currentDetailBookingId = bookingId;
+
+  document.getElementById('modalClientName').textContent = booking.name || 'Anonymous Client';
+  const createdStr = booking.createdAt ? new Date(booking.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'Recently';
+  document.getElementById('modalSubmittedDate').textContent = `Received: ${createdStr}`;
+
+  document.getElementById('modalEventType').textContent = booking.eventType || 'Club Night';
+  const timeInfo = booking.eventTime ? ` @ ${booking.eventTime}` : '';
+  document.getElementById('modalEventDate').textContent = `${booking.eventDate || 'Date TBD'}${timeInfo}`;
+  document.getElementById('modalLocation').textContent = booking.location || 'Location Not Specified';
+
+  document.getElementById('modalPhoneVal').textContent = booking.phone || 'None';
+  document.getElementById('modalCallBtn').href = booking.phone ? `tel:${booking.phone}` : '#';
+  let cleanPhone = booking.phone ? booking.phone.replace(/\D/g, '') : '';
+  if (cleanPhone.startsWith('0')) {
+    cleanPhone = '256' + cleanPhone.slice(1);
+  }
+  const clientName = booking.name || 'Client';
+  document.getElementById('modalWhatsappBtn').href = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('Hi ' + clientName + ', this is DJ Walker UG regarding your ' + (booking.status || 'Pending') + ' booking for ' + (booking.eventType || 'Event') + ' on ' + (booking.eventDate || 'the requested date') + timeInfo)}` : '#';
+
+  document.getElementById('modalEmailVal').textContent = booking.email || 'None';
+  document.getElementById('modalEmailBtn').href = booking.email ? `mailto:${booking.email}` : '#';
+
+  document.getElementById('modalNotesText').textContent = booking.notes ? booking.notes : 'No additional notes or instructions attached.';
+
+  // Render Status Buttons
+  const statuses = ['Pending', 'Contacted', 'Confirmed', 'Done', 'Declined'];
+  const statusGroup = document.getElementById('modalStatusGroup');
+  statusGroup.innerHTML = statuses.map(s => {
+    const isSelected = (booking.status || 'Pending') === s;
+    let bgStyle = '';
+    if (isSelected) {
+      if (s === 'Confirmed') bgStyle = 'background:#00e676; color:#0d0a17; font-weight:bold; border-color:#00e676;';
+      else if (s === 'Contacted') bgStyle = 'background:var(--cyan); color:#0d0a17; font-weight:bold; border-color:var(--cyan);';
+      else if (s === 'Done') bgStyle = 'background:#7c4dff; color:#ffffff; font-weight:bold; border-color:#7c4dff;';
+      else if (s === 'Declined') bgStyle = 'background:var(--magenta); color:#ffffff; font-weight:bold; border-color:var(--magenta);';
+      else bgStyle = 'background:var(--amber); color:#0d0a17; font-weight:bold; border-color:var(--amber);';
+    }
+    return `
+      <button class="btn" style="padding:4px 10px; font-size:11px; ${bgStyle}" onclick="updateBookingStatus('${booking.id}', '${s}')">
+        ${isSelected ? '✓ ' : ''}${s}
+      </button>
+    `;
+  }).join('');
+
+  // Setup Delete Button in modal
+  const delBtn = document.getElementById('modalDeleteBtn');
+  delBtn.onclick = () => {
+    deleteBooking(booking.id, delBtn);
+  };
+
+  if (autoOpen) {
+    document.getElementById('bookingDetailModal').style.display = 'flex';
+  }
+}
+
+function closeBookingDetailsModal() {
+  const modal = document.getElementById('bookingDetailModal');
+  if (modal) modal.style.display = 'none';
+  currentDetailBookingId = null;
+}
+
+// Modal Close Listeners
+document.getElementById('closeBookingDetailBtn')?.addEventListener('click', closeBookingDetailsModal);
+document.getElementById('modalCloseBottomBtn')?.addEventListener('click', closeBookingDetailsModal);
+document.getElementById('bookingDetailModal')?.addEventListener('click', (e) => {
+  if (e.target.id === 'bookingDetailModal') {
+    closeBookingDetailsModal();
   }
 });
 
-pauseBtn.addEventListener('click', pauseNowPlaying);
-forwardBtn.addEventListener('click', forwardNowPlaying);
-nowPlayingSliderEl.addEventListener('input', (event) => {
-  const percent = Number(event.target.value);
-  seekNowPlaying(percent);
+async function updateBookingStatus(bookingId, newStatus) {
+  try {
+    const res = await fetch(`/api/bookings/${encodeURIComponent(bookingId)}/status`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus })
+    });
+    if (res.ok) {
+      showToast(`Status updated to "${newStatus}"`, 'success');
+      fetchBookings();
+    } else {
+      showToast('Failed to update status.', 'error');
+    }
+  } catch (err) {
+    showToast('Failed to update status.', 'error');
+  }
+}
+
+async function clearDoneBookings(btnElement) {
+  const doneBookings = globalBookings.filter(b => b.status === 'Done' || b.status === 'Completed');
+  if (doneBookings.length === 0) {
+    showToast('No done / completed bookings to remove.', 'info');
+    return;
+  }
+
+  if (btnElement && btnElement.dataset.confirming !== 'true') {
+    btnElement.dataset.confirming = 'true';
+    const origText = btnElement.innerHTML;
+    btnElement.innerHTML = `⚠️ Confirm Purge (${doneBookings.length})`;
+    btnElement.style.background = 'var(--magenta)';
+    btnElement.style.color = '#ffffff';
+
+    setTimeout(() => {
+      if (btnElement && btnElement.dataset.confirming === 'true') {
+        delete btnElement.dataset.confirming;
+        btnElement.innerHTML = origText;
+        btnElement.style.background = '';
+        btnElement.style.color = 'var(--magenta)';
+      }
+    }, 4000);
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/bookings/clear-done', { method: 'DELETE' });
+    if (res.ok) {
+      const data = await res.json();
+      showToast(`Removed ${data.removedCount || doneBookings.length} completed/done booking(s).`, 'success');
+      fetchBookings();
+    } else {
+      showToast('Failed to remove done bookings.', 'error');
+    }
+  } catch (err) {
+    console.error('Error clearing done bookings:', err);
+    showToast('Failed to remove done bookings.', 'error');
+  }
+}
+
+async function deleteBooking(bookingId, btnElement) {
+  if (btnElement && btnElement.dataset.confirming !== 'true') {
+    btnElement.dataset.confirming = 'true';
+    const origText = btnElement.innerHTML;
+    btnElement.innerHTML = '⚠️ Click to Confirm';
+    btnElement.style.background = 'var(--magenta)';
+    btnElement.style.color = '#ffffff';
+    
+    setTimeout(() => {
+      if (btnElement && btnElement.dataset.confirming === 'true') {
+        delete btnElement.dataset.confirming;
+        btnElement.innerHTML = origText;
+        btnElement.style.background = '';
+        btnElement.style.color = 'var(--magenta)';
+      }
+    }, 4000);
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/bookings/${encodeURIComponent(bookingId)}`, { method: 'DELETE' });
+    if (res.ok) {
+      showToast('Booking deleted.', 'info');
+      fetchBookings();
+    } else {
+      showToast('Error deleting booking.', 'error');
+    }
+  } catch (err) {
+    showToast('Error deleting booking.', 'error');
+  }
+}
+
+// Admin Tab Switching
+document.querySelectorAll('.admin-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.admin-tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.tab).classList.add('active');
+  });
 });
 
-hydrateTrackUrls().catch(err => console.error('Error hydrating stored media URLs:', err)).then(() => {
-  renderTracks();
-  preloadTrackDurations();
+// Admin Unlock Modal & Navigation
+document.getElementById('adminLink').addEventListener('click', (e) => {
+  e.preventDefault();
+  // Close mobile nav menu if open
+  document.getElementById('navLinks').classList.remove('open');
+  
+  if (isAdminUnlocked) {
+    enterAdminMode();
+    return;
+  }
+  const pwdInput = document.getElementById('adminPasswordInput');
+  pwdInput.value = '';
+  document.getElementById('adminAuthModal').style.display = 'flex';
+  pwdInput.focus();
 });
-renderAdminTracks();
-resetAdminForm();
 
+document.getElementById('closeAdminAuthBtn').addEventListener('click', () => {
+  document.getElementById('adminPasswordInput').value = '';
+  document.getElementById('adminAuthModal').style.display = 'none';
+});
+
+document.getElementById('adminAuthForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const pwd = document.getElementById('adminPasswordInput').value;
+  if (pwd === 'DJWalkerUG2026') {
+    isAdminUnlocked = true;
+    sessionStorage.setItem('djwalker_admin_unlocked', 'true');
+    document.getElementById('adminAuthModal').style.display = 'none';
+    enterAdminMode();
+    fetchBookings();
+    showToast('Admin Portal Unlocked!', 'success');
+  } else {
+    showToast('Incorrect password.', 'error');
+  }
+});
+
+document.getElementById('exitAdminBtn').addEventListener('click', () => {
+  isAdminUnlocked = false;
+  sessionStorage.removeItem('djwalker_admin_unlocked');
+  exitAdminMode();
+  showToast('Exited Admin Portal.', 'info');
+});
+
+// ---------- EVENT LISTENERS & INITIALIZATION ----------
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchQuery = e.target.value.trim();
+  renderTracksList();
+});
+
+document.querySelectorAll('.genre-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.genre-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    activeGenre = pill.dataset.genre;
+    renderTracksList();
+  });
+});
+
+// Player Controls
+document.getElementById('playerPlayPause').addEventListener('click', () => {
+  if (activeTrack) {
+    if (activeTrack.audio.paused) activeTrack.audio.play();
+    else activeTrack.audio.pause();
+  }
+});
+
+document.getElementById('playerRewind').addEventListener('click', () => {
+  if (activeTrack) activeTrack.audio.currentTime = Math.max(0, activeTrack.audio.currentTime - 10);
+});
+
+document.getElementById('playerForward').addEventListener('click', () => {
+  if (activeTrack) activeTrack.audio.currentTime = Math.min(activeTrack.audio.duration || 0, activeTrack.audio.currentTime + 10);
+});
+
+document.getElementById('playerProgress').addEventListener('input', (e) => {
+  if (activeTrack && activeTrack.audio.duration) {
+    activeTrack.audio.currentTime = (e.target.value / 100) * activeTrack.audio.duration;
+  }
+});
+
+document.getElementById('playerDownloadBtn').addEventListener('click', () => {
+  if (activeTrack) downloadTrack(activeTrack.track.id);
+});
+
+// Equalizer Bars in Hero
+const eqField = document.getElementById('eqField');
+if (eqField) {
+  for (let i = 0; i < 36; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'eq-bar';
+    bar.style.height = `${40 + Math.random() * 160}px`;
+    bar.style.animationDelay = `${(Math.random() * 1.4).toFixed(2)}s`;
+    bar.style.animationDuration = `${(1 + Math.random() * 1.2).toFixed(2)}s`;
+    eqField.appendChild(bar);
+  }
+}
+
+// Genre Ticker
+const genres = ['Afrobeats', 'Amapiano', 'Hip-Hop', 'Ug Vibes', 'Dancehall', 'Gengetone', 'House'];
+const ticker = document.getElementById('ticker');
+if (ticker) {
+  const items = [...genres, ...genres, ...genres];
+  ticker.innerHTML = items.map(g => `<span>${g}</span>`).join('<span class="mono" style="color:var(--text-dim)">·</span>');
+}
+
+// Nav toggle
+document.getElementById('navToggle').addEventListener('click', () => {
+  document.getElementById('navLinks').classList.toggle('open');
+});
+
+// Startup
+fetchTracks();
+fetchSiteInfo();
+initRealtimeBookings();
+renderUserBookingTracker();
+if (isAdminUnlocked) {
+  enterAdminMode();
+  fetchBookings();
+}
 </script>
 </body>
 </html>
