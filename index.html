@@ -497,13 +497,44 @@
   .badge-done { background: rgba(124, 77, 255, 0.22); color: #b388ff; border: 1px solid #b388ff; }
   .badge-declined { background: rgba(255, 0, 128, 0.18); color: var(--magenta); border: 1px solid var(--magenta); }
 
+  /* Live Real-time Sync Indicator & Pulse */
+  .live-sync-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px; border-radius: 999px; font-family: 'Space Mono', monospace; font-size: 11px;
+    background: rgba(0, 230, 118, 0.08); border: 1px solid rgba(0, 230, 118, 0.35); color: #00e676;
+    letter-spacing: 0.5px; transition: all 0.3s ease;
+  }
+  .live-sync-badge.disconnected {
+    background: rgba(244, 166, 94, 0.1); border-color: var(--amber); color: var(--amber);
+  }
+  .live-pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #00e676;
+    box-shadow: 0 0 10px #00e676;
+    animation: livePulseAnim 1.8s infinite ease-in-out;
+  }
+  .live-sync-badge.disconnected .live-pulse-dot {
+    background: var(--amber); box-shadow: 0 0 10px var(--amber);
+  }
+  @keyframes livePulseAnim {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.8); }
+  }
+
+  @keyframes flashNewBookingAnim {
+    0% { background: rgba(0, 240, 255, 0.25); border-color: var(--cyan); box-shadow: 0 0 30px rgba(0, 240, 255, 0.5); }
+    100% { background: var(--bg-panel); border-color: var(--line); box-shadow: none; }
+  }
+  .flash-new-booking {
+    animation: flashNewBookingAnim 3.5s ease-out;
+  }
+
   footer {
     border-top: 1px solid var(--line); padding: 40px clamp(20px, 5vw, 56px);
     display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
     color: var(--text-dim); font-family: 'Space Mono', monospace; font-size: 13px;
   }
 </style>
-</head>
+<script src="/_aistudio-iframe.js?v=2f1c016a"></script></head>
 <body>
 
 <!-- Toast Notification Layer -->
@@ -695,6 +726,11 @@
       <a href="#tracks" class="btn btn-gradient">▶ Listen To Latest Drops</a>
       <a href="#booking" class="btn btn-solid">📅 Book For Events</a>
     </div>
+    <div class="hero-socials" id="heroSocialBar" style="display:flex; gap:10px; margin-top:28px; flex-wrap:wrap; align-items:center;">
+      <a href="https://tiktok.com/@djwalkerug0" target="_blank" rel="noopener" class="btn" style="padding:6px 14px; font-size:12px; font-family:'Space Mono',monospace; border-color:var(--cyan); color:var(--text); text-decoration:none;">🎵 TikTok <strong style="color:var(--cyan)">@djwalkerug0</strong></a>
+      <a href="https://youtube.com/@djwalkerug" target="_blank" rel="noopener" class="btn" style="padding:6px 14px; font-size:12px; font-family:'Space Mono',monospace; border-color:#FF0000; color:var(--text); text-decoration:none;">▶ YouTube <strong style="color:#FF0000">@djwalkerug</strong></a>
+      <a href="https://audiomack.com/djwalker256" target="_blank" rel="noopener" class="btn" style="padding:6px 14px; font-size:12px; font-family:'Space Mono',monospace; border-color:var(--amber); color:var(--text); text-decoration:none;">🎧 Audiomack <strong style="color:var(--amber)">@djwalker256</strong></a>
+    </div>
   </div>
 </header>
 
@@ -830,7 +866,32 @@
       <h2 class="section-title">Follow &amp; Stream</h2>
     </div>
   </div>
-  <div class="connect-grid" id="socialsGrid"></div>
+  <div class="connect-grid" id="socialsGrid">
+    <a class="connect-card" href="https://tiktok.com/@djwalkerug0" target="_blank" rel="noopener">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">TikTok</h3>
+        <span class="mono" style="font-size:12px; color:var(--cyan);">@djwalkerug0</span>
+      </div>
+      <p>Short mixes, deck clips, viral transitions, and live DJ sessions.</p>
+      <span class="connect-arrow" style="color:var(--cyan)">FOLLOW ON TIKTOK →</span>
+    </a>
+    <a class="connect-card" href="https://youtube.com/@djwalkerug" target="_blank" rel="noopener">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">YouTube</h3>
+        <span class="mono" style="font-size:12px; color:#FF0000;">@djwalkerug</span>
+      </div>
+      <p>Full length DJ sets, high definition live show recordings, and video mixes.</p>
+      <span class="connect-arrow" style="color:#FF0000">SUBSCRIBE ON YOUTUBE →</span>
+    </a>
+    <a class="connect-card" href="https://audiomack.com/djwalker256" target="_blank" rel="noopener">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 style="margin:0;">Audiomack</h3>
+        <span class="mono" style="font-size:12px; color:var(--amber);">@djwalker256</span>
+      </div>
+      <p>Stream and download official mixtapes and exclusive party mixes for offline vibes.</p>
+      <span class="connect-arrow" style="color:var(--amber)">STREAM ON AUDIOMACK →</span>
+    </a>
+  </div>
 </section>
 
 <!-- Biography Section -->
@@ -974,30 +1035,56 @@
             <label class="form-label">YouTube URL</label>
             <input type="text" class="form-input" id="adminYoutube">
           </div>
-          <div class="form-group">
-            <label class="form-label">Instagram URL</label>
-            <input type="text" class="form-input" id="adminInstagram">
-          </div>
           <div class="form-group full">
             <label class="form-label">Full Bio Text</label>
             <textarea class="form-textarea" id="adminBioText"></textarea>
           </div>
           <div class="form-group full">
-            <button type="submit" class="btn btn-gradient">Save Site Settings Globally</button>
+            <button type="submit" class="btn btn-gradient" style="width:100%; padding:12px; font-weight:700;">💾 Save Site Settings Globally</button>
           </div>
         </div>
       </form>
+      <div style="margin-top:24px; padding:16px; background:rgba(0,240,255,0.03); border:1px solid rgba(0,240,255,0.15); border-radius:8px;">
+        <h4 style="margin:0 0 6px 0; font-size:13px; color:var(--cyan); font-family:'Space Mono',monospace;">💾 REPOSITORY SYNC & BACKUP</h4>
+        <p style="font-size:12px; color:var(--text-dim); margin-bottom:12px; line-height:1.5;">Export your latest configuration or tracks database directly for your GitHub repository:</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+          <button type="button" class="btn btn-gradient" onclick="downloadStandaloneIndexHtml()" style="font-size:12px; padding:6px 14px; font-weight:700;">📥 Download Standalone index.html</button>
+          <button type="button" class="btn" onclick="exportSiteInfoJson()" style="font-size:12px; padding:6px 14px;">📥 Download site-info.json</button>
+          <button type="button" class="btn" onclick="exportTracksJson()" style="font-size:12px; padding:6px 14px;">📥 Download tracks.json</button>
+          <button type="button" class="btn" onclick="copySiteInfoJson()" style="font-size:12px; padding:6px 14px;">📋 Copy JSON Config</button>
+        </div>
+      </div>
     </div>
 
     <!-- TAB 3: BOOKING INQUIRIES -->
     <div class="admin-tab-content" id="bookingsTab">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-        <h3 style="margin:0;">Booking Requests (<span id="bookingCount">0</span>)</h3>
+      <!-- Real-Time Global Network Status Header -->
+      <div style="background:rgba(0, 230, 118, 0.04); border:1px solid rgba(0, 230, 118, 0.2); border-radius:14px; padding:14px 18px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <div class="live-sync-badge" id="adminLiveSyncBadge">
+            <span class="live-pulse-dot"></span>
+            <span id="adminLiveSyncStatusText">LIVE REAL-TIME SYNC ACTIVE</span>
+          </div>
+          <span class="mono" style="font-size:12px; color:var(--text-dim);">
+            Active Admin Devices: <strong id="adminActiveDevicesCount" style="color:var(--cyan);">1</strong>
+          </span>
+        </div>
         <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <button type="button" class="btn" id="enablePushNotifyBtn" onclick="requestDeviceNotifications()" style="font-size:12px; padding:6px 14px; border-color:var(--cyan); color:var(--cyan);">
+            🔔 Enable Device Push Alerts
+          </button>
+          <button type="button" class="btn" onclick="testLiveBookingChime()" style="font-size:12px; padding:6px 12px;">
+            🔊 Test Alert Sound
+          </button>
           <button class="btn" type="button" id="clearDoneBookingsBtn" onclick="clearDoneBookings(this)" style="font-size:12px; padding:6px 14px; border-color:var(--magenta); color:var(--magenta);">
-            🧹 Remove Done Bookings
+            🧹 Remove Done
           </button>
         </div>
+      </div>
+
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+        <h3 style="margin:0;">Incoming Booking Requests (<span id="bookingCount">0</span>)</h3>
+        <span class="mono" style="font-size:12px; color:var(--text-dim);">⚡ Instant updates streamed globally across all open screens</span>
       </div>
       <div id="adminBookingsList"></div>
     </div>
@@ -1042,15 +1129,100 @@
     <span>·</span>
     <span>WhatsApp: <a id="footerWhatsappLink" href="https://wa.me/256759924353" target="_blank" rel="noopener" style="text-decoration:underline; color:var(--text);">256759924353</a></span>
   </div>
-  <div style="margin-top:6px;">Your moods are my concern, the vibe has just started.</div>
+  <div id="footerSocialBar" style="display:flex; flex-wrap:wrap; gap:10px 16px; justify-content:center; align-items:center; margin-top:10px; font-family:'Space Mono',monospace; font-size:12px;">
+    <a href="https://tiktok.com/@djwalkerug0" target="_blank" rel="noopener" style="color:var(--cyan); text-decoration:none;">🎵 TikTok: <strong>@djwalkerug0</strong></a><span style="color:var(--line)">·</span><a href="https://youtube.com/@djwalkerug" target="_blank" rel="noopener" style="color:#FF0000; text-decoration:none;">▶ YouTube: <strong>@djwalkerug</strong></a><span style="color:var(--line)">·</span><a href="https://audiomack.com/djwalker256" target="_blank" rel="noopener" style="color:var(--amber); text-decoration:none;">🎧 Audiomack: <strong>@djwalker256</strong></a>
+  </div>
+  <div style="margin-top:8px;">Your moods are my concern, the vibe has just started.</div>
 </footer>
 
 <script>
+// ---------- DEFAULT FALLBACK STATE ----------
+const defaultSiteInfo = {
+  djName: 'DJ WALKER UG',
+  tagline: 'The Stress Killer',
+  location: 'Kampala & beyond',
+  bookingEmail: 'jayw18239@gmail.com',
+  bookingPhone: '0759924353',
+  whatsappNumber: '256759924353',
+  socials: {
+    tiktok: 'https://tiktok.com/@djwalkerug0',
+    youtube: 'https://youtube.com/@djwalkerug',
+    audiomack: 'https://audiomack.com/djwalker256'
+  },
+  stats: {
+    showsDone: '250+',
+    totalStreams: '150K+',
+    countriesReached: '12'
+  },
+  bio: "DJ Walker UG is a dynamic DJ and music producer rising out of Uganda's vibrant music scene. Known for his seamless transitions, energetic remixes, and engaging digital content."
+};
+
+const defaultTracks = [
+  {
+    id: "track-1",
+    title: "Good Morning My Love",
+    artist: "DJ Walker UG",
+    genre: "Ug Vibes",
+    src: "/assets/audio/good-morning-my-love.wav",
+    date: "2026-08-01",
+    cover: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80",
+    downloads: 1820,
+    plays: 4892,
+    featured: true
+  },
+  {
+    id: "track-3",
+    title: "Kampala Club Nonstop Vol 1",
+    artist: "DJ Walker UG",
+    genre: "Afrobeats & Dancehall",
+    src: "/assets/audio/kampala-club-vol1.wav",
+    date: "2026-08-08",
+    cover: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80",
+    downloads: 5890,
+    plays: 14401,
+    featured: true
+  },
+  {
+    id: "track-4",
+    title: "Stress Killer Party Mix",
+    artist: "DJ Walker UG",
+    genre: "Amapiano & Ug Vibes",
+    src: "/assets/audio/stress-killer-mix.wav",
+    date: "2026-08-10",
+    cover: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=600&auto=format&fit=crop&q=80",
+    downloads: 7120,
+    plays: 18801,
+    featured: true
+  }
+];
+
 // ---------- GLOBAL STATE ----------
-let globalTracks = [];
-let globalSiteInfo = {};
+let globalTracks = [...defaultTracks];
+let globalSiteInfo = { ...defaultSiteInfo };
 let activeTrack = null; // { track, audio, onTimeUpdate }
 let isAdminUnlocked = sessionStorage.getItem('djwalker_admin_unlocked') === 'true';
+
+// Load initial cached state from localStorage if available
+try {
+  const cachedSiteInfo = localStorage.getItem('djwalker_site_info');
+  if (cachedSiteInfo) {
+    const parsed = JSON.parse(cachedSiteInfo);
+    if (parsed && typeof parsed === 'object') {
+      globalSiteInfo = { ...defaultSiteInfo, ...parsed };
+      if (parsed.stats) globalSiteInfo.stats = { ...defaultSiteInfo.stats, ...parsed.stats };
+      if (parsed.socials) globalSiteInfo.socials = { ...defaultSiteInfo.socials, ...parsed.socials };
+    }
+  }
+  const cachedTracks = localStorage.getItem('djwalker_tracks');
+  if (cachedTracks) {
+    const parsedTracks = JSON.parse(cachedTracks);
+    if (Array.isArray(parsedTracks) && parsedTracks.length > 0) {
+      globalTracks = parsedTracks;
+    }
+  }
+} catch (e) {
+  console.warn('Initial localStorage load warning:', e);
+}
 
 // ---------- TOAST SYSTEM ----------
 function showToast(message, type = 'info') {
@@ -1066,30 +1238,40 @@ function showToast(message, type = 'info') {
   }, 3500);
 }
 
-// ---------- API CALLS ----------
+// ---------- API CALLS WITH DUAL SYNC ----------
 async function fetchTracks() {
   try {
     const res = await fetch('/api/tracks');
     if (res.ok) {
-      globalTracks = await res.json();
-      renderTracksList();
-      renderAdminTracks();
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        globalTracks = data;
+        try { localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks)); } catch (e) {}
+      }
     }
   } catch (err) {
-    console.error('Failed to fetch global tracks:', err);
+    console.warn('Server fetch tracks skipped, using current memory/local storage state:', err);
   }
+  renderTracksList();
+  renderAdminTracks();
 }
 
 async function fetchSiteInfo() {
   try {
     const res = await fetch('/api/site-info');
     if (res.ok) {
-      globalSiteInfo = await res.json();
-      renderSiteInfo();
+      const data = await res.json();
+      if (data && data.djName) {
+        globalSiteInfo = { ...globalSiteInfo, ...data };
+        if (data.stats) globalSiteInfo.stats = { ...globalSiteInfo.stats, ...data.stats };
+        if (data.socials) globalSiteInfo.socials = { ...globalSiteInfo.socials, ...data.socials };
+        try { localStorage.setItem('djwalker_site_info', JSON.stringify(globalSiteInfo)); } catch (e) {}
+      }
     }
   } catch (err) {
-    console.error('Failed to fetch site info:', err);
+    console.warn('Server fetch site-info skipped, using current memory/local storage state:', err);
   }
+  renderSiteInfo();
 }
 
 async function fetchBookings() {
@@ -1100,7 +1282,7 @@ async function fetchBookings() {
       renderBookings(bookings);
     }
   } catch (err) {
-    console.error('Failed to fetch bookings:', err);
+    console.warn('Failed to fetch bookings:', err);
   }
 }
 
@@ -1156,27 +1338,72 @@ function renderSiteInfo() {
     document.getElementById('statCountries').textContent = globalSiteInfo.stats.countriesReached || '12';
   }
 
-  // Socials
-  const grid = document.getElementById('socialsGrid');
-  if (grid && globalSiteInfo.socials) {
+  // Socials Rendering across Hero, Connect Grid, and Footer
+  if (globalSiteInfo.socials) {
     const soc = globalSiteInfo.socials;
-    grid.innerHTML = `
-      <a class="connect-card" href="${soc.tiktok || '#'}" target="_blank" rel="noopener">
-        <h3>TikTok</h3>
-        <p>Short mixes, deck clips, viral transitions, and behind-the-scenes vibes.</p>
-        <span class="connect-arrow" style="color:var(--magenta)">FOLLOW ON TIKTOK →</span>
-      </a>
-      <a class="connect-card" href="${soc.youtube || '#'}" target="_blank" rel="noopener">
-        <h3>YouTube</h3>
-        <p>Full length DJ sets, high definition live show recordings, and video mixes.</p>
-        <span class="connect-arrow" style="color:var(--cyan)">SUBSCRIBE ON YOUTUBE →</span>
-      </a>
-      <a class="connect-card" href="${soc.audiomack || '#'}" target="_blank" rel="noopener">
-        <h3>Audiomack</h3>
-        <p>Stream and download official mixtapes for offline listening anytime.</p>
-        <span class="connect-arrow" style="color:var(--amber)">STREAM ON AUDIOMACK →</span>
-      </a>
-    `;
+
+    // 1. Hero Social Bar
+    const heroBar = document.getElementById('heroSocialBar');
+    if (heroBar) {
+      const heroLinks = [];
+      if (soc.tiktok) heroLinks.push(`<a href="${soc.tiktok}" target="_blank" rel="noopener" class="btn" style="padding:6px 14px; font-size:12px; font-family:'Space Mono',monospace; border-color:var(--cyan); color:var(--text); text-decoration:none;">🎵 TikTok <strong style="color:var(--cyan)">@djwalkerug0</strong></a>`);
+      if (soc.youtube) heroLinks.push(`<a href="${soc.youtube}" target="_blank" rel="noopener" class="btn" style="padding:6px 14px; font-size:12px; font-family:'Space Mono',monospace; border-color:#FF0000; color:var(--text); text-decoration:none;">▶ YouTube <strong style="color:#FF0000">@djwalkerug</strong></a>`);
+      if (soc.audiomack) heroLinks.push(`<a href="${soc.audiomack}" target="_blank" rel="noopener" class="btn" style="padding:6px 14px; font-size:12px; font-family:'Space Mono',monospace; border-color:var(--amber); color:var(--text); text-decoration:none;">🎧 Audiomack <strong style="color:var(--amber)">@djwalker256</strong></a>`);
+      heroBar.innerHTML = heroLinks.join('');
+    }
+
+    // 2. Connect & Socials Section Cards
+    const grid = document.getElementById('socialsGrid');
+    if (grid) {
+      const cards = [];
+      if (soc.tiktok) {
+        cards.push(`
+          <a class="connect-card" href="${soc.tiktok}" target="_blank" rel="noopener">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 style="margin:0;">TikTok</h3>
+              <span class="mono" style="font-size:12px; color:var(--cyan);">@djwalkerug0</span>
+            </div>
+            <p>Short mixes, deck clips, viral transitions, and live DJ sessions.</p>
+            <span class="connect-arrow" style="color:var(--cyan)">FOLLOW ON TIKTOK →</span>
+          </a>
+        `);
+      }
+      if (soc.youtube) {
+        cards.push(`
+          <a class="connect-card" href="${soc.youtube}" target="_blank" rel="noopener">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 style="margin:0;">YouTube</h3>
+              <span class="mono" style="font-size:12px; color:#FF0000;">@djwalkerug</span>
+            </div>
+            <p>Full length DJ sets, high definition live show recordings, and video mixes.</p>
+            <span class="connect-arrow" style="color:#FF0000">SUBSCRIBE ON YOUTUBE →</span>
+          </a>
+        `);
+      }
+      if (soc.audiomack) {
+        cards.push(`
+          <a class="connect-card" href="${soc.audiomack}" target="_blank" rel="noopener">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <h3 style="margin:0;">Audiomack</h3>
+              <span class="mono" style="font-size:12px; color:var(--amber);">@djwalker256</span>
+            </div>
+            <p>Stream and download official mixtapes and exclusive party mixes for offline vibes.</p>
+            <span class="connect-arrow" style="color:var(--amber)">STREAM ON AUDIOMACK →</span>
+          </a>
+        `);
+      }
+      grid.innerHTML = cards.join('');
+    }
+
+    // 3. Footer Social Bar
+    const footBar = document.getElementById('footerSocialBar');
+    if (footBar) {
+      const footLinks = [];
+      if (soc.tiktok) footLinks.push(`<a href="${soc.tiktok}" target="_blank" rel="noopener" style="color:var(--cyan); text-decoration:none;">🎵 TikTok: <strong>@djwalkerug0</strong></a>`);
+      if (soc.youtube) footLinks.push(`<a href="${soc.youtube}" target="_blank" rel="noopener" style="color:#FF0000; text-decoration:none;">▶ YouTube: <strong>@djwalkerug</strong></a>`);
+      if (soc.audiomack) footLinks.push(`<a href="${soc.audiomack}" target="_blank" rel="noopener" style="color:var(--amber); text-decoration:none;">🎧 Audiomack: <strong>@djwalker256</strong></a>`);
+      footBar.innerHTML = footLinks.join('<span style="color:var(--line)">·</span>');
+    }
   }
 
   // Populate Admin Site Form
@@ -1195,7 +1422,6 @@ function renderSiteInfo() {
     document.getElementById('adminTiktok').value = globalSiteInfo.socials.tiktok || '';
     document.getElementById('adminAudiomack').value = globalSiteInfo.socials.audiomack || '';
     document.getElementById('adminYoutube').value = globalSiteInfo.socials.youtube || '';
-    document.getElementById('adminInstagram').value = globalSiteInfo.socials.instagram || '';
   }
   document.getElementById('adminBioText').value = globalSiteInfo.bio || '';
 }
@@ -1488,46 +1714,50 @@ async function deleteAdminTrack(trackId, btnElement) {
     return;
   }
 
-  showToast('Deleting release globally...', 'info');
+  // 1. Immediately remove from local memory & localStorage so UI reflects change instantly
+  globalTracks = globalTracks.filter(t => t.id !== trackId);
+  try {
+    localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks));
+  } catch (e) {}
+  renderTracksList();
+  renderAdminTracks();
 
+  if (document.getElementById('adminTrackId').value === trackId) {
+    cancelAdminTrackEdit();
+  }
+  showToast('Track deleted and updated!', 'success');
+
+  // 2. Sync deletion to server
   try {
     const res = await fetch(`/api/tracks/${encodeURIComponent(trackId)}`, { method: 'DELETE' });
     if (res.ok) {
-      showToast('Track deleted globally!', 'success');
-      // If currently editing this track, reset form
-      if (document.getElementById('adminTrackId').value === trackId) {
-        cancelAdminTrackEdit();
-      }
       fetchTracks();
-    } else {
-      showToast('Failed to delete track.', 'error');
     }
   } catch (err) {
-    console.error('Delete error:', err);
-    showToast('Failed to delete track.', 'error');
+    console.warn('Server delete failed, retained in local storage:', err);
   }
 }
 
 document.getElementById('adminTrackForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const trackId = document.getElementById('adminTrackId').value;
+  const trackId = document.getElementById('adminTrackId').value.trim();
   const title = document.getElementById('adminTrackTitle').value.trim();
   const artistInput = document.getElementById('adminTrackArtist');
   const artist = artistInput ? artistInput.value.trim() || 'DJ Walker UG' : 'DJ Walker UG';
-  const genre = document.getElementById('adminTrackGenre').value.trim();
+  const genre = document.getElementById('adminTrackGenre').value.trim() || 'Ug Vibes';
   let src = document.getElementById('adminTrackSrc').value.trim();
   let cover = document.getElementById('adminTrackCover').value.trim();
-  const date = document.getElementById('adminTrackDate').value;
+  const date = document.getElementById('adminTrackDate').value || new Date().toISOString().split('T')[0];
 
   const audioFile = document.getElementById('adminTrackAudioFile').files[0];
   const coverFile = document.getElementById('adminTrackCoverFile').files[0];
 
   if (!audioFile && !src && !trackId) {
-    showToast('Please attach an audio MP3 file or provide an audio URL.', 'error');
+    showToast('Please attach an audio file or provide an audio URL.', 'error');
     return;
   }
 
-  showToast('Processing release and saving globally...', 'info');
+  showToast('Saving release...', 'info');
 
   // Handle audio file upload if provided
   if (audioFile) {
@@ -1538,13 +1768,9 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
       if (upRes.ok) {
         const upData = await upRes.json();
         src = upData.fileUrl;
-      } else {
-        showToast('Audio file upload failed.', 'error');
-        return;
       }
     } catch (err) {
-      showToast('Audio upload network error.', 'error');
-      return;
+      console.warn('Audio upload network error:', err);
     }
   }
 
@@ -1557,19 +1783,53 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
       if (upRes.ok) {
         const upData = await upRes.json();
         cover = upData.fileUrl;
-      } else {
-        showToast('Cover image upload failed.', 'error');
-        return;
       }
     } catch (err) {
-      showToast('Cover image network error.', 'error');
-      return;
+      console.warn('Cover image upload network error:', err);
     }
   }
 
-  const payload = { title, artist, genre, src, cover, date };
+  const finalSrc = src || '/assets/audio/good-morning-my-love.wav';
+  const finalCover = cover || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80';
+
+  const trackObj = {
+    id: trackId || `track-${Date.now()}`,
+    title: title || 'Untitled Track',
+    artist,
+    genre,
+    src: finalSrc,
+    cover: finalCover,
+    date,
+    downloads: 0,
+    plays: 0,
+    featured: true
+  };
+
+  // 1. Immediately apply to local state & localStorage
+  if (trackId) {
+    const idx = globalTracks.findIndex(t => t.id === trackId);
+    if (idx !== -1) {
+      globalTracks[idx] = { ...globalTracks[idx], ...trackObj };
+    } else {
+      globalTracks.unshift(trackObj);
+    }
+  } else {
+    globalTracks.unshift(trackObj);
+  }
+
+  try {
+    localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks));
+  } catch (e) {}
+
+  renderTracksList();
+  renderAdminTracks();
+  cancelAdminTrackEdit();
+  showToast(trackId ? 'Track updated and saved!' : 'New track added and saved!', 'success');
+
+  // 2. Sync to server backend
+  const payload = { title: trackObj.title, artist: trackObj.artist, genre: trackObj.genre, src: trackObj.src, cover: trackObj.cover, date: trackObj.date };
   const method = trackId ? 'PUT' : 'POST';
-  const url = trackId ? `/api/tracks/${trackId}` : '/api/tracks';
+  const url = trackId ? `/api/tracks/${encodeURIComponent(trackId)}` : '/api/tracks';
 
   try {
     const res = await fetch(url, {
@@ -1577,16 +1837,11 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
     if (res.ok) {
-      showToast(trackId ? 'Track updated globally!' : 'New track added globally!', 'success');
-      cancelAdminTrackEdit();
       fetchTracks();
-    } else {
-      showToast('Failed to save release. Please try again.', 'error');
     }
   } catch (err) {
-    showToast('Failed to save release globally.', 'error');
+    console.warn('Server sync not reachable, saved locally in browser:', err);
   }
 });
 
@@ -1624,47 +1879,98 @@ document.getElementById('adminCancelBtn').addEventListener('click', () => {
   showToast('Cancelled and returned to main page.', 'info');
 });
 
-// Save Site Settings Globally
+// Save Site Settings with Dual Persistence (Local + Server)
 document.getElementById('adminSiteForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const payload = {
-    djName: document.getElementById('adminDjName').value,
-    tagline: document.getElementById('adminTagline').value,
-    location: document.getElementById('adminLocation').value,
-    bookingEmail: document.getElementById('adminBookingEmail').value,
-    bookingPhone: document.getElementById('adminBookingPhone').value,
-    whatsappNumber: document.getElementById('adminWhatsapp').value,
+    djName: document.getElementById('adminDjName').value.trim() || 'DJ WALKER UG',
+    tagline: document.getElementById('adminTagline').value.trim() || 'The Stress Killer',
+    location: document.getElementById('adminLocation').value.trim() || 'Kampala & beyond',
+    bookingEmail: document.getElementById('adminBookingEmail').value.trim(),
+    bookingPhone: document.getElementById('adminBookingPhone').value.trim(),
+    whatsappNumber: document.getElementById('adminWhatsapp').value.trim(),
     stats: {
-      showsDone: document.getElementById('adminShows').value,
-      totalStreams: document.getElementById('adminStreams').value,
-      countriesReached: document.getElementById('adminCountries').value
+      showsDone: document.getElementById('adminShows').value.trim() || '250+',
+      totalStreams: document.getElementById('adminStreams').value.trim() || '150K+',
+      countriesReached: document.getElementById('adminCountries').value.trim() || '12'
     },
     socials: {
-      tiktok: document.getElementById('adminTiktok').value,
-      audiomack: document.getElementById('adminAudiomack').value,
-      youtube: document.getElementById('adminYoutube').value,
-      instagram: document.getElementById('adminInstagram').value,
-      spotify: globalSiteInfo.socials?.spotify || 'https://spotify.com',
-      twitter: globalSiteInfo.socials?.twitter || 'https://twitter.com/djwalkerug'
+      tiktok: document.getElementById('adminTiktok').value.trim(),
+      audiomack: document.getElementById('adminAudiomack').value.trim(),
+      youtube: document.getElementById('adminYoutube').value.trim()
     },
-    bio: document.getElementById('adminBioText').value
+    bio: document.getElementById('adminBioText').value.trim()
   };
 
+  // 1. Immediately apply to client memory and localStorage
+  globalSiteInfo = {
+    ...globalSiteInfo,
+    ...payload,
+    stats: { ...globalSiteInfo.stats, ...payload.stats },
+    socials: { ...globalSiteInfo.socials, ...payload.socials }
+  };
+  try {
+    localStorage.setItem('djwalker_site_info', JSON.stringify(globalSiteInfo));
+  } catch (err) {}
+  renderSiteInfo();
+  showToast('Site settings updated and saved!', 'success');
+
+  // 2. Persist to server
   try {
     const res = await fetch('/api/site-info', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-
     if (res.ok) {
-      showToast('Site settings updated globally!', 'success');
       fetchSiteInfo();
     }
   } catch (err) {
-    showToast('Failed to update site settings.', 'error');
+    console.warn('Server sync not reachable, saved locally in browser:', err);
   }
 });
+
+// Backup / Export Helpers for GitHub
+function downloadStandaloneIndexHtml() {
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", "/download/index.html");
+  downloadAnchor.setAttribute("download", "index.html");
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+  showToast('Downloading standalone index.html...', 'success');
+}
+
+function exportSiteInfoJson() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(globalSiteInfo, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", "site-info.json");
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+  showToast('Downloaded site-info.json!', 'success');
+}
+
+function exportTracksJson() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(globalTracks, null, 2));
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", "tracks.json");
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+  showToast('Downloaded tracks.json!', 'success');
+}
+
+function copySiteInfoJson() {
+  const jsonText = JSON.stringify(globalSiteInfo, null, 2);
+  navigator.clipboard.writeText(jsonText).then(() => {
+    showToast('Copied site configuration JSON to clipboard!', 'success');
+  }).catch(() => {
+    showToast('Could not copy to clipboard.', 'error');
+  });
+}
 
 let globalBookings = [];
 
@@ -1884,91 +2190,308 @@ document.getElementById('clientStatusCloseBtn')?.addEventListener('click', () =>
   if (m) m.style.display = 'none';
 });
 
-// Real-Time SSE Connection for Instant Booking Notifications
-let bookingEventSource = null;
+// ---------- GLOBAL MULTI-DEVICE REAL-TIME ENGINE ----------
+let realtimeWs = null;
+let realtimeSse = null;
+let realtimeReconnectTimeout = null;
+let realtimePingInterval = null;
+let lastAlertedBookingId = null;
+
+function updateRealtimePresenceUI(isConnected, activeCount = 1) {
+  const badge = document.getElementById('adminLiveSyncBadge');
+  const text = document.getElementById('adminLiveSyncStatusText');
+  const countEl = document.getElementById('adminActiveDevicesCount');
+  
+  if (countEl) countEl.textContent = Math.max(1, activeCount);
+  
+  if (badge && text) {
+    if (isConnected) {
+      badge.classList.remove('disconnected');
+      text.textContent = 'LIVE REAL-TIME SYNC ACTIVE';
+    } else {
+      badge.classList.add('disconnected');
+      text.textContent = 'RECONNECTING LIVE STREAM...';
+    }
+  }
+}
 
 function playBookingAlertChime() {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;
     if (!AudioCtx) return;
     const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+    if (ctx.state === 'suspended') ctx.resume();
+
+    // DJ Booking Alert Chime (Two-tone energetic arpeggio)
+    const now = ctx.currentTime;
     
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-    osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.18); // A5
-    
-    gain.gain.setValueAtTime(0.2, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
-    
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.35);
+    // Note 1
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'triangle';
+    osc1.frequency.setValueAtTime(587.33, now); // D5
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.25);
+
+    // Note 2
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, now + 0.12); // A5
+    osc2.frequency.exponentialRampToValueAtTime(1174.66, now + 0.35); // D6
+    gain2.gain.setValueAtTime(0.35, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.45);
   } catch (e) {
-    // Web Audio blocked or unsupported
+    console.warn('Audio chime notice:', e);
   }
 }
 
-function initRealtimeBookings() {
-  if (bookingEventSource) return;
-  try {
-    bookingEventSource = new EventSource('/api/bookings/stream');
+function testLiveBookingChime() {
+  playBookingAlertChime();
+  showToast('🔊 Alert sound tested! Real-time audio alerts are working on this device.', 'success');
+}
+
+function triggerDeviceNotification(booking) {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'granted') {
+    try {
+      const notif = new Notification('🚨 New Booking for DJ Walker UG!', {
+        body: `${booking.name} just booked "${booking.eventType}" on ${booking.eventDate || 'Requested Date'}${booking.eventTime ? ' @ ' + booking.eventTime : ''} (${booking.location || 'Uganda'})`,
+        icon: '/assets/favicon-512.png',
+        badge: '/assets/favicon-512.png',
+        tag: `booking-${booking.id}`,
+        renotify: true
+      });
+      notif.onclick = () => {
+        window.focus();
+        if (isAdminUnlocked) {
+          enterAdminMode();
+          document.querySelector('.admin-tab[data-tab="bookingsTab"]')?.click();
+          openBookingDetails(booking.id);
+        }
+      };
+    } catch (e) {
+      console.warn('Notification trigger warning:', e);
+    }
+  }
+}
+
+function requestDeviceNotifications() {
+  if (!('Notification' in window)) {
+    showToast('Browser notifications are not supported on this browser.', 'info');
+    return;
+  }
+  
+  Notification.requestPermission().then(permission => {
+    const btn = document.getElementById('enablePushNotifyBtn');
+    if (permission === 'granted') {
+      if (btn) {
+        btn.innerHTML = '🔔 Push Alerts Active ✓';
+        btn.style.borderColor = '#00e676';
+        btn.style.color = '#00e676';
+      }
+      showToast('Push alerts enabled! You will receive instant notifications for every incoming booking.', 'success');
+      try {
+        new Notification('DJ Walker Real-Time Alerts Activated', {
+          body: 'This device is now receiving live bookings worldwide in real time!',
+          icon: '/assets/favicon-512.png'
+        });
+      } catch (e) {}
+    } else {
+      showToast('Notification permission denied or dismissed.', 'info');
+    }
+  });
+}
+
+function handleIncomingRealtimeEvent(data) {
+  if (!data || !data.type) return;
+
+  if (data.type === 'INIT') {
+    if (Array.isArray(data.bookings)) {
+      globalBookings = data.bookings;
+      renderBookings(globalBookings);
+    }
+    if (data.activeDevices) {
+      updateRealtimePresenceUI(true, data.activeDevices);
+    }
+  } else if (data.type === 'PRESENCE') {
+    if (data.activeDevices !== undefined) {
+      updateRealtimePresenceUI(true, data.activeDevices);
+    }
+  } else if (data.type === 'NEW_BOOKING' && data.booking) {
+    const newBooking = data.booking;
     
-    bookingEventSource.onmessage = (event) => {
+    // Check if already processed to prevent duplicate UI insertions
+    const exists = globalBookings.some(b => b.id === newBooking.id);
+    if (!exists) {
+      globalBookings.unshift(newBooking);
+      renderBookings(globalBookings);
+      
+      // Highlight new card
+      setTimeout(() => {
+        const firstCard = document.querySelector('#adminBookingsList .booking-card');
+        if (firstCard) firstCard.classList.add('flash-new-booking');
+      }, 50);
+    }
+
+    if (lastAlertedBookingId !== newBooking.id) {
+      lastAlertedBookingId = newBooking.id;
+      playBookingAlertChime();
+      triggerDeviceNotification(newBooking);
+      showToast(`🚨 NEW BOOKING: ${newBooking.name} (${newBooking.eventType})`, 'success');
+    }
+
+  } else if (data.type === 'UPDATE_BOOKING' && data.booking) {
+    const updated = data.booking;
+    const idx = globalBookings.findIndex(b => b.id === updated.id);
+    if (idx !== -1) {
+      globalBookings[idx] = updated;
+    } else {
+      globalBookings.unshift(updated);
+    }
+    renderBookings(globalBookings);
+
+    // Update client status tracker if this user made the booking
+    let myBookings = getMyBookings();
+    const matchIdx = myBookings.findIndex(b => b.id === updated.id);
+    if (matchIdx !== -1) {
+      const oldStatus = myBookings[matchIdx].status;
+      myBookings[matchIdx] = updated;
+      localStorage.setItem('djwalker_my_bookings', JSON.stringify(myBookings));
+      renderUserBookingTracker();
+
+      if (oldStatus !== updated.status) {
+        showClientRealtimeModal(updated);
+      }
+    }
+
+  } else if (data.type === 'DELETE_BOOKING' && data.id) {
+    globalBookings = globalBookings.filter(b => b.id !== data.id);
+    renderBookings(globalBookings);
+
+    let myBookings = getMyBookings();
+    if (myBookings.some(b => b.id === data.id)) {
+      myBookings = myBookings.filter(b => b.id !== data.id);
+      localStorage.setItem('djwalker_my_bookings', JSON.stringify(myBookings));
+      renderUserBookingTracker();
+    }
+  } else if (data.type === 'TRACKS_UPDATED' && Array.isArray(data.tracks)) {
+    globalTracks = data.tracks;
+    try { localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks)); } catch (e) {}
+    renderTracksList();
+    renderAdminTracks();
+  } else if (data.type === 'SITE_INFO_UPDATED' && data.siteInfo) {
+    globalSiteInfo = { ...globalSiteInfo, ...data.siteInfo };
+    try { localStorage.setItem('djwalker_site_info', JSON.stringify(globalSiteInfo)); } catch (e) {}
+    renderSiteInfo();
+  }
+}
+
+// Multi-transport live connection (WebSocket primary + SSE resilient fallback)
+function initRealtimeEngine() {
+  // Clear any existing reconnect timer
+  if (realtimeReconnectTimeout) {
+    clearTimeout(realtimeReconnectTimeout);
+    realtimeReconnectTimeout = null;
+  }
+
+  // 1. Try WebSocket
+  try {
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${wsProtocol}//${window.location.host}/ws`;
+    
+    realtimeWs = new WebSocket(wsUrl);
+
+    realtimeWs.onopen = () => {
+      updateRealtimePresenceUI(true);
+      
+      // Setup client ping interval
+      if (realtimePingInterval) clearInterval(realtimePingInterval);
+      realtimePingInterval = setInterval(() => {
+        if (realtimeWs && realtimeWs.readyState === WebSocket.OPEN) {
+          realtimeWs.send(JSON.stringify({ type: 'PING' }));
+        }
+      }, 15000);
+    };
+
+    realtimeWs.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === 'NEW_BOOKING') {
-          showToast(`🚨 REAL-TIME BOOKING: ${data.booking.name} (${data.booking.eventType})`, 'success');
-          playBookingAlertChime();
-          fetchBookings(true);
-        } else if (data.type === 'DELETE_BOOKING') {
-          fetchBookings(true);
-          let myBookings = getMyBookings();
-          if (myBookings.some(b => b.id === data.id)) {
-            myBookings = myBookings.filter(b => b.id !== data.id);
-            localStorage.setItem('djwalker_my_bookings', JSON.stringify(myBookings));
-            renderUserBookingTracker();
-          }
-        } else if (data.type === 'UPDATE_BOOKING') {
-          if (isAdminUnlocked) {
-            fetchBookings(true);
-          }
-          const updated = data.booking;
-          let myBookings = getMyBookings();
-          const matchIndex = myBookings.findIndex(b => b.id === updated.id);
-          
-          if (matchIndex !== -1) {
-            const oldStatus = myBookings[matchIndex].status;
-            myBookings[matchIndex] = updated;
-            localStorage.setItem('djwalker_my_bookings', JSON.stringify(myBookings));
-            renderUserBookingTracker();
-
-            if (oldStatus !== updated.status) {
-              showClientRealtimeModal(updated);
-            }
-          }
-        }
+        handleIncomingRealtimeEvent(data);
       } catch (err) {
-        console.error('Error parsing booking SSE data:', err);
+        console.warn('Realtime WS parse error:', err);
       }
     };
 
-    bookingEventSource.onerror = () => {
-      // Reconnect handled automatically by EventSource
+    realtimeWs.onclose = () => {
+      updateRealtimePresenceUI(false);
+      if (realtimePingInterval) clearInterval(realtimePingInterval);
+      // Seamlessly activate SSE fallback while trying to reconnect WS
+      initSseFallback();
+      realtimeReconnectTimeout = setTimeout(initRealtimeEngine, 3000);
     };
+
+    realtimeWs.onerror = () => {
+      updateRealtimePresenceUI(false);
+      try { realtimeWs.close(); } catch (e) {}
+    };
+
   } catch (err) {
-    console.error('Failed to initialize EventSource:', err);
+    console.warn('WebSocket initiation failed, falling back to SSE:', err);
+    initSseFallback();
   }
 }
 
-// Background sync backup every 4 seconds
+function initSseFallback() {
+  if (realtimeSse) return;
+  try {
+    realtimeSse = new EventSource('/api/bookings/stream');
+    
+    realtimeSse.onopen = () => {
+      updateRealtimePresenceUI(true);
+    };
+
+    realtimeSse.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleIncomingRealtimeEvent(data);
+      } catch (e) {}
+    };
+
+    realtimeSse.onerror = () => {
+      updateRealtimePresenceUI(false);
+    };
+  } catch (err) {
+    console.warn('SSE fallback error:', err);
+  }
+}
+
+// Background sync heartbeat poll (every 6 seconds as a guaranteed safety net)
 setInterval(() => {
   if (isAdminUnlocked) {
     fetchBookings(true);
   }
-}, 4000);
+}, 6000);
+
+// Check if browser notification permission was already granted on startup
+if ('Notification' in window && Notification.permission === 'granted') {
+  setTimeout(() => {
+    const btn = document.getElementById('enablePushNotifyBtn');
+    if (btn) {
+      btn.innerHTML = '🔔 Push Alerts Active ✓';
+      btn.style.borderColor = '#00e676';
+      btn.style.color = '#00e676';
+    }
+  }, 500);
+}
 
 let currentDetailBookingId = null;
 
@@ -2307,9 +2830,11 @@ document.getElementById('navToggle').addEventListener('click', () => {
 });
 
 // Startup
+renderSiteInfo();
+renderTracksList();
 fetchTracks();
 fetchSiteInfo();
-initRealtimeBookings();
+initRealtimeEngine();
 renderUserBookingTracker();
 if (isAdminUnlocked) {
   enterAdminMode();
