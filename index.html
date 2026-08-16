@@ -26,6 +26,10 @@
 
 <!-- OneSignal Push Notifications (Optional Web Integration) -->
 <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+
+<!-- Decentralized Real-Time Mesh (Gun.js) for instantaneous multi-device synchronization -->
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+
 <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
@@ -1465,7 +1469,7 @@ function getCloudServerBase() {
   }
   const host = window.location.hostname || '';
   if (host === 'localhost' || host === '127.0.0.1' || host.includes('run.app')) {
-    return '';
+    return window.location.origin;
   }
   return DEFAULT_CLOUD_RELAY;
 }
@@ -1474,12 +1478,13 @@ function apiUrl(endpoint) {
   const base = getCloudServerBase();
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : '/' + endpoint;
   if (!base) return cleanEndpoint;
+  if (cleanEndpoint.startsWith('http://') || cleanEndpoint.startsWith('https://')) return cleanEndpoint;
   return base + cleanEndpoint;
 }
 
 function getWsUrl() {
   const base = getCloudServerBase();
-  if (!base) {
+  if (!base || base.includes(window.location.host)) {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     return `${proto}//${window.location.host}/ws`;
   }
@@ -1508,6 +1513,90 @@ function broadcastLocally(msg) {
     try { crossTabChannel.postMessage(msg); } catch (e) {}
   }
 }
+
+// Global Decentralized Real-Time Mesh (Gun.js) - connects devices worldwide across firewalls & domains
+const GUN_PEERS = [
+  'https://gun-manhattan.herokuapp.com/gun',
+  'https://peer.wallie.io/gun',
+  'https://relay.peer.ooo/gun',
+  'https://gunjs.herokuapp.com/gun'
+];
+
+let gunMesh = null;
+try {
+  if (typeof Gun !== 'undefined') {
+    gunMesh = Gun({ peers: GUN_PEERS });
+  }
+} catch (err) {
+  console.warn('Gun P2P Mesh initialization notice:', err);
+}
+
+function broadcastToMesh(type, payload = {}) {
+  // 1. Cross-tab BroadcastChannel
+  broadcastLocally({ type, ...payload });
+
+  // 2. Global Decentralized Gun Mesh (Instant worldwide real-time multi-device sync)
+  if (gunMesh) {
+    try {
+      const channel = gunMesh.get('djwalker_ug_global_mesh_v7');
+      if (type === 'TRACKS_UPDATED') {
+        channel.get('tracks').put(JSON.stringify({ tracks: payload.tracks || globalTracks, timestamp: Date.now() }));
+      } else if (type === 'SITE_INFO_UPDATED') {
+        channel.get('siteInfo').put(JSON.stringify({ siteInfo: payload.siteInfo || globalSiteInfo, timestamp: Date.now() }));
+      } else if (type === 'NEW_BOOKING' || type === 'UPDATE_BOOKING' || type === 'DELETE_BOOKING') {
+        channel.get('bookings').put(JSON.stringify({ bookings: globalBookings, timestamp: Date.now() }));
+      }
+    } catch (e) {
+      console.warn('Mesh broadcast error:', e);
+    }
+  }
+}
+
+function initGunMeshListener() {
+  if (!gunMesh) return;
+  try {
+    const channel = gunMesh.get('djwalker_ug_global_mesh_v7');
+
+    channel.get('tracks').on((data) => {
+      if (!data) return;
+      try {
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        const tracks = parsed.tracks || (Array.isArray(parsed) ? parsed : null);
+        if (Array.isArray(tracks) && tracks.length > 0) {
+          handleIncomingRealtimeEvent({ type: 'TRACKS_UPDATED', tracks });
+        }
+      } catch (err) {}
+    });
+
+    channel.get('siteInfo').on((data) => {
+      if (!data) return;
+      try {
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        const siteInfo = parsed.siteInfo || (parsed.djName ? parsed : null);
+        if (siteInfo && siteInfo.djName) {
+          handleIncomingRealtimeEvent({ type: 'SITE_INFO_UPDATED', siteInfo });
+        }
+      } catch (err) {}
+    });
+
+    channel.get('bookings').on((data) => {
+      if (!data) return;
+      try {
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        const bookings = parsed.bookings || (Array.isArray(parsed) ? parsed : null);
+        if (Array.isArray(bookings)) {
+          globalBookings = bookings;
+          renderBookings(globalBookings);
+        }
+      } catch (err) {}
+    });
+  } catch (e) {
+    console.warn('Gun listener setup error:', e);
+  }
+}
+
+// Start mesh listener immediately
+try { initGunMeshListener(); } catch (e) {}
 
 function saveCustomCloudRelay() {
   const input = document.getElementById('adminCloudRelayInput');
@@ -1574,21 +1663,24 @@ async function forceSyncAll(notify = false) {
 }
 
 // ---------- API CALLS WITH DUAL SYNC ----------
-async function fetchTracks() {
+async function fetchTracks(silent = false) {
   try {
-    const res = await fetch(apiUrl('/api/tracks'));
+    const res = await fetch(apiUrl('/api/tracks'), { cache: 'no-store' });
     if (res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
-        globalTracks = data;
-        try { localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks)); } catch (e) {}
+        const isDifferent = JSON.stringify(data) !== JSON.stringify(globalTracks);
+        if (isDifferent) {
+          globalTracks = data;
+          try { localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks)); } catch (e) {}
+          renderTracksList();
+          renderAdminTracks();
+        }
       }
     }
   } catch (err) {
-    console.warn('Server fetch tracks skipped, using current memory/local storage state:', err);
+    if (!silent) console.warn('Server fetch tracks skipped, using current memory/local storage state:', err);
   }
-  renderTracksList();
-  renderAdminTracks();
 }
 
 async function fetchSiteInfo() {
@@ -1808,7 +1900,7 @@ function renderTracksList() {
 
   container.innerHTML = filtered.map((track, i) => {
     const isPlaying = isTrackCurrentlyPlaying(track.id);
-    const coverUrl = track.cover || 'assets/favicon-512.png';
+    const coverUrl = resolveMediaUrl(track.cover);
     return `
       <div class="track">
         <span class="track-idx mono">${String(i + 1).padStart(2, '0')}</span>
@@ -1857,13 +1949,33 @@ function isTrackCurrentlyPlaying(trackId) {
   return false;
 }
 
+function resolveMediaUrl(coverUrl) {
+  if (!coverUrl) return 'assets/favicon-512.png';
+  coverUrl = coverUrl.trim();
+  if (coverUrl.startsWith('data:') || coverUrl.startsWith('blob:') || coverUrl.startsWith('idb://')) return coverUrl;
+  if (coverUrl.startsWith('http://') || coverUrl.startsWith('https://')) return coverUrl;
+  if (coverUrl.startsWith('uploads/') || coverUrl.startsWith('/uploads/') || coverUrl.startsWith('assets/') || coverUrl.startsWith('/assets/')) {
+    const clean = coverUrl.startsWith('/') ? coverUrl : '/' + coverUrl;
+    return apiUrl(clean);
+  }
+  return coverUrl;
+}
+
 function resolveAudioUrl(src) {
-  if (!src) return '/assets/audio/good-morning-my-love.wav';
+  if (!src) return apiUrl('/assets/audio/good-morning-my-love.wav');
   src = src.trim();
-  
-  // Normalize relative assets / uploads paths
+
+  if (src.startsWith('idb://') || src.startsWith('data:') || src.startsWith('blob:')) {
+    return src;
+  }
+
+  // Normalize relative assets / uploads paths and resolve against cloud server
   if (src.startsWith('assets/')) src = '/' + src;
   if (src.startsWith('uploads/')) src = '/' + src;
+
+  if (src.startsWith('/uploads/') || src.startsWith('/assets/')) {
+    return apiUrl(src);
+  }
 
   // Dropbox direct link normalization: replace dl=0 with raw=1
   if (src.includes('dropbox.com')) {
@@ -2276,7 +2388,7 @@ function updatePlayerUI() {
 
   player.classList.remove('hidden-player');
   const coverImg = document.getElementById('playerCover');
-  if (coverImg) coverImg.src = activeTrack.track.cover || 'assets/favicon-512.png';
+  if (coverImg) coverImg.src = resolveMediaUrl(activeTrack.track.cover);
   const titleEl = document.getElementById('playerTitle');
   if (titleEl) titleEl.textContent = activeTrack.track.title;
   const genreEl = document.getElementById('playerGenre');
@@ -2456,7 +2568,7 @@ document.getElementById('bookingForm').addEventListener('submit', async (e) => {
 
   // 1. Immediately save to client's personal tracker
   saveMyBooking(data);
-  broadcastLocally({ type: 'NEW_BOOKING', booking: data });
+  broadcastToMesh('NEW_BOOKING', { booking: data });
 
   let success = false;
   let serverBooking = null;
@@ -2707,7 +2819,7 @@ function renderAdminTracks() {
 
   list.innerHTML = globalTracks.map(t => {
     const isPlaying = isTrackCurrentlyPlaying(t.id);
-    const coverUrl = t.cover || 'assets/favicon-512.png';
+    const coverUrl = resolveMediaUrl(t.cover);
     const isLocalUpload = t.src && (t.src.startsWith('/uploads/') || t.src.startsWith('idb://') || t.src.startsWith('data:'));
 
     return `
@@ -2805,18 +2917,20 @@ async function deleteAdminTrack(trackId, btnElement) {
   } catch (err) {
     console.warn('Server delete error:', err);
   }
+
+  broadcastToMesh('TRACKS_UPDATED', { tracks: globalTracks });
 }
 
 // Universal media upload helper with 3-tier fallback (Server Multipart -> Server Base64 -> Client IndexedDB/DataURL)
 async function uploadMediaFile(file, isAudio = true) {
   if (!file) return null;
 
-  // 1. Try standard FormData multipart upload if server is active
+  // 1. Try standard FormData multipart upload to global server
   try {
     const formData = new FormData();
     formData.append('file', file, file.name);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes for large audio tracks / mixes
     const res = await fetch(apiUrl('/api/upload'), {
       method: 'POST',
       body: formData,
@@ -2828,7 +2942,7 @@ async function uploadMediaFile(file, isAudio = true) {
       if (data && data.fileUrl) return data.fileUrl;
     }
   } catch (err) {
-    console.warn('Multipart upload not available (static host or offline):', err.message);
+    console.warn('Multipart upload error, trying base64 fallback:', err.message);
   }
 
   // 2. Base64 server fallback
@@ -2841,7 +2955,7 @@ async function uploadMediaFile(file, isAudio = true) {
     });
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
     const res = await fetch(apiUrl('/api/upload-base64'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -2905,12 +3019,12 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
   // Set UI to loading state
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.textContent = '⏳ Processing & Saving...';
+    submitBtn.textContent = '⏳ Uploading & Syncing Worldwide...';
   }
 
-  showToast('Saving release to playlist and broadcast vault...', 'info');
+  showToast('Broadcasting track to live cloud servers & devices worldwide...', 'info');
 
-  // 1. Handle Audio File Upload (with automatic GitHub Pages / IndexedDB fallback)
+  // 1. Handle Audio File Upload
   if (audioFile) {
     try {
       const uploadedAudioUrl = await uploadMediaFile(audioFile, true);
@@ -2919,7 +3033,6 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
       }
     } catch (err) {
       console.error('Audio upload error:', err);
-      // Fallback directly to IndexedDB
       const mediaId = `media_${Date.now()}`;
       await MediaVault.saveMedia(mediaId, audioFile, audioFile.type, audioFile.name);
       src = `idb://${mediaId}`;
@@ -2934,15 +3047,16 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
         cover = uploadedCoverUrl;
       }
     } catch (err) {
-      console.warn('Cover image upload error (proceeding with fallback):', err);
+      console.warn('Cover image upload error:', err);
       const mediaId = `media_cover_${Date.now()}`;
       await MediaVault.saveMedia(mediaId, coverFile, coverFile.type, coverFile.name);
       cover = `idb://${mediaId}`;
     }
   }
 
-  const finalSrc = src || (trackId ? (globalTracks.find(t => t.id === trackId)?.src || '/assets/audio/good-morning-my-love.wav') : '/assets/audio/good-morning-my-love.wav');
-  const finalCover = cover || (trackId ? (globalTracks.find(t => t.id === trackId)?.cover || 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80') : 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80');
+  const existingTrack = trackId ? globalTracks.find(t => t.id === trackId) : null;
+  const finalSrc = src || (existingTrack ? existingTrack.src : '/assets/audio/good-morning-my-love.wav');
+  const finalCover = cover || (existingTrack ? existingTrack.cover : 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=600&auto=format&fit=crop&q=80');
 
   const payload = {
     id: trackId || `track-${Date.now()}`,
@@ -2952,36 +3066,16 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
     src: finalSrc,
     cover: finalCover,
     date,
-    downloads: 0,
-    plays: 0,
+    downloads: existingTrack ? (existingTrack.downloads || 0) : 0,
+    plays: existingTrack ? (existingTrack.plays || 0) : 0,
     featured: true
   };
 
-  // 3. Local first persistence
-  if (trackId) {
-    const idx = globalTracks.findIndex(t => t.id === trackId);
-    if (idx !== -1) globalTracks[idx] = { ...globalTracks[idx], ...payload };
-  } else {
-    globalTracks.unshift(payload);
-  }
-
-  try {
-    localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks));
-  } catch (e) {}
-
-  renderTracksList();
-  renderAdminTracks();
-  cancelAdminTrackEdit();
-
-  if (submitBtn) {
-    submitBtn.disabled = false;
-    submitBtn.textContent = '➕ Add Track';
-  }
-
-  // 4. Background Server sync (silently handles GitHub Pages 404s)
+  // 3. Primary Sync to Live Global Backend (Triggers WebSocket broadcast to all live devices worldwide)
   const method = trackId ? 'PUT' : 'POST';
   const url = trackId ? `/api/tracks/${encodeURIComponent(trackId)}` : '/api/tracks';
 
+  let syncedWithServer = false;
   try {
     const res = await fetch(apiUrl(url), {
       method,
@@ -2993,16 +3087,50 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
       const resData = await res.json();
       if (Array.isArray(resData.tracks)) {
         globalTracks = resData.tracks;
-        localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks));
-        renderTracksList();
-        renderAdminTracks();
+      } else if (resData.track) {
+        if (trackId) {
+          const idx = globalTracks.findIndex(t => t.id === trackId);
+          if (idx !== -1) globalTracks[idx] = resData.track;
+        } else {
+          globalTracks.unshift(resData.track);
+        }
       }
+      syncedWithServer = true;
     }
   } catch (err) {
-    console.warn('Server sync not reachable, release preserved safely in browser storage:', err);
+    console.warn('Server sync error, falling back to local mesh:', err);
   }
 
-  showToast(trackId ? `Track "${payload.title}" updated successfully!` : `Release "${payload.title}" uploaded & ready to play!`, 'success');
+  // If server was temporarily not reachable, apply update locally
+  if (!syncedWithServer) {
+    if (trackId) {
+      const idx = globalTracks.findIndex(t => t.id === trackId);
+      if (idx !== -1) globalTracks[idx] = { ...globalTracks[idx], ...payload };
+    } else {
+      globalTracks.unshift(payload);
+    }
+  }
+
+  try {
+    localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks));
+  } catch (e) {}
+
+  broadcastToMesh('TRACKS_UPDATED', { tracks: globalTracks });
+  renderTracksList();
+  renderAdminTracks();
+  cancelAdminTrackEdit();
+
+  if (submitBtn) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = '➕ Add Track';
+  }
+
+  showToast(
+    trackId 
+      ? `Track "${payload.title}" updated and synced live across devices worldwide! 🌐🎶` 
+      : `Release "${payload.title}" uploaded & live across devices worldwide! 🌐🎶`, 
+    'success'
+  );
 });
 
 function cancelAdminTrackEdit() {
@@ -3073,6 +3201,7 @@ document.getElementById('adminSiteForm').addEventListener('submit', async (e) =>
     localStorage.setItem('djwalker_site_info', JSON.stringify(globalSiteInfo));
   } catch (err) {}
   renderSiteInfo();
+  broadcastToMesh('SITE_INFO_UPDATED', { siteInfo: globalSiteInfo });
   showToast('Site settings updated and saved!', 'success');
 
   // 2. Persist to server
@@ -3091,29 +3220,40 @@ document.getElementById('adminSiteForm').addEventListener('submit', async (e) =>
 });
 
 // Backup / Export Helpers for GitHub
-function downloadStandaloneIndexHtml() {
-  // If running on static host / GitHub Pages, generate download from current page source with embedded data!
-  if (window.location.hostname.includes('github.io') || window.location.protocol === 'file:' || !window.location.port) {
-    const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-    const blobUrl = URL.createObjectURL(blob);
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", blobUrl);
-    downloadAnchor.setAttribute("download", "index.html");
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-    showToast('Downloaded updated standalone index.html for your GitHub repository!', 'success');
-    return;
+async function downloadStandaloneIndexHtml() {
+  showToast('Preparing standalone index.html download...', 'info');
+  try {
+    const res = await fetch(apiUrl('/download/index.html'));
+    if (res.ok) {
+      const text = await res.text();
+      const blob = new Blob([text], { type: 'text/html;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = 'index.html';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+      showToast('Downloaded complete standalone index.html!', 'success');
+      return;
+    }
+  } catch (err) {
+    console.warn('Direct fetch download error, using client-side DOM snapshot:', err);
   }
+
+  // Fallback: Generate HTML file from current page DOM
+  const htmlContent = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+  const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+  const blobUrl = URL.createObjectURL(blob);
   const downloadAnchor = document.createElement('a');
-  downloadAnchor.setAttribute("href", "/download/index.html");
-  downloadAnchor.setAttribute("download", "index.html");
+  downloadAnchor.href = blobUrl;
+  downloadAnchor.download = "index.html";
   document.body.appendChild(downloadAnchor);
   downloadAnchor.click();
   downloadAnchor.remove();
-  showToast('Downloading standalone index.html...', 'success');
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
+  showToast('Downloaded standalone index.html!', 'success');
 }
 
 function exportSiteInfoJson() {
@@ -3645,10 +3785,27 @@ function handleIncomingRealtimeEvent(data) {
       renderUserBookingTracker();
     }
   } else if (data.type === 'TRACKS_UPDATED' && Array.isArray(data.tracks)) {
+    const oldIds = new Set(globalTracks.map(t => t.id));
+    const newTracksAdded = data.tracks.filter(t => !oldIds.has(t.id));
     globalTracks = data.tracks;
     try { localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks)); } catch (e) {}
     renderTracksList();
     renderAdminTracks();
+
+    if (newTracksAdded.length > 0) {
+      playBookingAlertChime();
+      showToast(`🔥 NEW RELEASE: "${newTracksAdded[0].title}" dropped live by DJ Walker UG! 🎶`, 'success');
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('DJ Walker UG · New Release Live!', {
+            body: `Now live: "${newTracksAdded[0].title}" (${newTracksAdded[0].genre}). Tap to listen!`,
+            icon: resolveMediaUrl(newTracksAdded[0].cover)
+          });
+        } catch (e) {}
+      }
+    } else {
+      showToast('Live playlist updated worldwide! 🎶', 'info');
+    }
   } else if (data.type === 'SITE_INFO_UPDATED' && data.siteInfo) {
     globalSiteInfo = { ...globalSiteInfo, ...data.siteInfo };
     try { localStorage.setItem('djwalker_site_info', JSON.stringify(globalSiteInfo)); } catch (e) {}
@@ -3734,7 +3891,7 @@ function initSseFallback() {
   }
 }
 
-// Background sync heartbeat poll (every 4 seconds for admin or 8 seconds for client tracker)
+// Background sync heartbeat poll (every 4.5 seconds for bookings and 6.5 seconds for global tracks)
 setInterval(() => {
   if (isAdminUnlocked) {
     fetchBookings(true);
@@ -3744,7 +3901,9 @@ setInterval(() => {
       fetchBookings(true);
     }
   }
-}, 4500);
+  fetchTracks(true);
+  fetchSiteInfo(true);
+}, 5000);
 
 // Check if browser notification permission was already granted on startup
 if ('Notification' in window && Notification.permission === 'granted') {
@@ -3885,6 +4044,13 @@ document.getElementById('bookingDetailModal')?.addEventListener('click', (e) => 
 });
 
 async function updateBookingStatus(bookingId, newStatus) {
+  const b = globalBookings.find(item => item.id === bookingId);
+  if (b) {
+    b.status = newStatus;
+    renderBookings(globalBookings);
+    broadcastToMesh('UPDATE_BOOKING', { bookings: globalBookings, booking: b });
+  }
+
   try {
     const res = await fetch(apiUrl(`/api/bookings/${encodeURIComponent(bookingId)}/status`), {
       method: 'PUT',
@@ -3927,6 +4093,10 @@ async function clearDoneBookings(btnElement) {
     return;
   }
 
+  globalBookings = globalBookings.filter(b => b.status !== 'Done' && b.status !== 'Completed');
+  renderBookings(globalBookings);
+  broadcastToMesh('UPDATE_BOOKING', { bookings: globalBookings });
+
   try {
     const res = await fetch(apiUrl('/api/bookings/clear-done'), { method: 'DELETE' });
     if (res.ok) {
@@ -3960,6 +4130,10 @@ async function deleteBooking(bookingId, btnElement) {
     }, 4000);
     return;
   }
+
+  globalBookings = globalBookings.filter(b => b.id !== bookingId);
+  renderBookings(globalBookings);
+  broadcastToMesh('DELETE_BOOKING', { bookings: globalBookings });
 
   try {
     const res = await fetch(apiUrl(`/api/bookings/${encodeURIComponent(bookingId)}`), { method: 'DELETE' });
