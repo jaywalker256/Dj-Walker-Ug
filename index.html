@@ -79,7 +79,7 @@
 
   /* ---------- TOAST SYSTEM ---------- */
   .toast-container {
-    position: fixed; top: 80px; right: 24px; z-index: 9999;
+    position: fixed; top: 80px; right: 24px; z-index: 10001;
     display: flex; flex-direction: column; gap: 10px; pointer-events: none;
   }
   .toast {
@@ -773,6 +773,13 @@
       <div style="background:var(--bg); padding:16px; border-radius:12px; border:1px solid var(--line); margin-top:6px; font-size:14px; line-height:1.6; color:var(--text); white-space:pre-wrap;" id="modalNotesText">No additional notes provided.</div>
     </div>
 
+    <!-- Admin Feedback / Message back to client -->
+    <div style="margin-bottom:24px;">
+      <span class="form-label">💬 Send Feedback / Message to Client (visible to them in real time)</span>
+      <textarea id="modalAdminNoteInput" class="form-textarea" style="min-height:80px; margin-top:6px;" placeholder="e.g. Confirmed for 8PM, I'll bring my own sound system, will call to confirm equipment needs..."></textarea>
+      <button type="button" class="btn btn-gradient" id="modalSendNoteBtn" style="margin-top:8px; padding:8px 16px; font-size:12px;">📤 Send Feedback to Client</button>
+    </div>
+
     <!-- Footer Actions -->
     <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; border-top:1px solid var(--line); padding-top:16px;">
       <button type="button" class="btn" style="border-color:var(--magenta); color:var(--magenta); font-size:12px;" id="modalDeleteBtn">🗑️ Delete Booking</button>
@@ -804,6 +811,10 @@
       <div style="display:flex; justify-content:space-between;">
         <span style="color:var(--text-dim);">Location:</span>
         <strong id="clientStatusLocation" style="color:var(--text);">Kampala</strong>
+      </div>
+      <div id="clientStatusNoteRow" style="display:none; margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); text-align:left;">
+        <span style="color:var(--text-dim); display:block; margin-bottom:4px;">Message from DJ Walker:</span>
+        <strong id="clientStatusNoteText" style="color:var(--amber); white-space:pre-wrap; font-weight:500;"></strong>
       </div>
     </div>
 
@@ -1420,6 +1431,7 @@ const defaultTracks = [
 // ---------- GLOBAL STATE ----------
 let globalTracks = [...defaultTracks];
 let globalSiteInfo = { ...defaultSiteInfo };
+let globalBookings = [];
 let activeTrack = null; // { track, audio, onTimeUpdate }
 let isAdminUnlocked = sessionStorage.getItem('djwalker_admin_unlocked') === 'true';
 
@@ -1543,8 +1555,20 @@ function broadcastToMesh(type, payload = {}) {
         channel.get('tracks').put(JSON.stringify({ tracks: payload.tracks || globalTracks, timestamp: Date.now() }));
       } else if (type === 'SITE_INFO_UPDATED') {
         channel.get('siteInfo').put(JSON.stringify({ siteInfo: payload.siteInfo || globalSiteInfo, timestamp: Date.now() }));
-      } else if (type === 'NEW_BOOKING' || type === 'UPDATE_BOOKING' || type === 'DELETE_BOOKING') {
-        channel.get('bookings').put(JSON.stringify({ bookings: globalBookings, timestamp: Date.now() }));
+      } else if (type === 'NEW_BOOKING' || type === 'UPDATE_BOOKING') {
+        // Write each booking to its OWN node keyed by id, so two devices editing
+        // different (or the same) bookings at the same time merge instead of overwriting each other.
+        const bookings = payload.booking ? [payload.booking] : (payload.bookings || []);
+        bookings.forEach(b => {
+          if (b && b.id) {
+            channel.get('bookings').get(String(b.id)).put(JSON.stringify({ ...b, _rev: Date.now() }));
+          }
+        });
+      } else if (type === 'DELETE_BOOKING') {
+        const ids = payload.id ? [payload.id] : (payload.ids || []);
+        ids.forEach(id => {
+          channel.get('bookings').get(String(id)).put(JSON.stringify({ id, _deleted: true, _rev: Date.now() }));
+        });
       }
     } catch (e) {
       console.warn('Mesh broadcast error:', e);
@@ -1579,14 +1603,17 @@ function initGunMeshListener() {
       } catch (err) {}
     });
 
-    channel.get('bookings').on((data) => {
+    // Each booking lives at its own node (bookings/<id>), so .map().on() streams
+    // every create/update/delete individually from every device, worldwide, in real time.
+    channel.get('bookings').map().on((data, key) => {
       if (!data) return;
       try {
         const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-        const bookings = parsed.bookings || (Array.isArray(parsed) ? parsed : null);
-        if (Array.isArray(bookings)) {
-          globalBookings = bookings;
-          renderBookings(globalBookings);
+        if (!parsed || !parsed.id) return;
+        if (parsed._deleted) {
+          handleIncomingRealtimeEvent({ type: 'DELETE_BOOKING', id: parsed.id });
+        } else {
+          handleIncomingRealtimeEvent({ type: 'UPSERT_BOOKING', booking: parsed });
         }
       } catch (err) {}
     });
@@ -3385,6 +3412,12 @@ function renderUserBookingTracker() {
                   ` : ''}
                 </div>
               </div>
+              ${b.adminNote && b.adminNote.trim() ? `
+                <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);">
+                  <span style="font-size:12px; color:var(--text-dim); display:block; margin-bottom:4px;">💬 Message from DJ Walker:</span>
+                  <span style="font-size:13px; color:var(--amber); white-space:pre-wrap;">${b.adminNote.trim()}</span>
+                </div>
+              ` : ''}
               ${b.status === 'Confirmed' || b.status === 'Contacted' || b.status === 'Done' ? `
                 <div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--line); display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
                   <span style="font-size:12px; color:var(--text-dim);">Coordinate with DJ Walker:</span>
@@ -3432,11 +3465,12 @@ function playClientStatusChime(status) {
   } catch (e) {}
 }
 
-function showClientRealtimeModal(booking) {
+function showClientRealtimeModal(booking, isFeedbackOnly = false) {
   const modal = document.getElementById('clientStatusModal');
   if (!modal) return;
 
-  const icon = booking.status === 'Confirmed' ? '🎉' :
+  const icon = isFeedbackOnly ? '💬' :
+               booking.status === 'Confirmed' ? '🎉' :
                booking.status === 'Contacted' ? '💬' :
                booking.status === 'Done' ? '🏁' :
                booking.status === 'Declined' ? 'ℹ️' : '🟡';
@@ -3446,12 +3480,14 @@ function showClientRealtimeModal(booking) {
                      booking.status === 'Done' ? 'badge-done' :
                      booking.status === 'Declined' ? 'badge-declined' : 'badge-pending';
 
-  const heading = booking.status === 'Confirmed' ? 'YOUR BOOKING IS CONFIRMED!' :
+  const heading = isFeedbackOnly ? 'NEW MESSAGE FROM DJ WALKER!' :
+                  booking.status === 'Confirmed' ? 'YOUR BOOKING IS CONFIRMED!' :
                   booking.status === 'Contacted' ? 'DJ WALKER REPLIED TO YOUR BOOKING!' :
                   booking.status === 'Done' ? 'YOUR BOOKING IS COMPLETED!' :
                   booking.status === 'Declined' ? 'BOOKING REQUEST DECLINED' : 'BOOKING STATUS UPDATED';
 
-  const desc = booking.status === 'Confirmed' ? 'DJ Walker UG has officially confirmed your event! Get ready for an incredible performance.' :
+  const desc = isFeedbackOnly ? 'DJ Walker UG left you a message about your booking — see below.' :
+               booking.status === 'Confirmed' ? 'DJ Walker UG has officially confirmed your event! Get ready for an incredible performance.' :
                booking.status === 'Contacted' ? 'DJ Walker UG has marked your booking as contacted. Reach out directly on WhatsApp or Phone below.' :
                booking.status === 'Done' ? 'DJ Walker UG has marked your event booking as completed. Thank you for booking with DJ Walker UG!' :
                booking.status === 'Declined' ? 'Unfortunately DJ Walker UG is unavailable for this specific date/slot.' : 'Your booking status was updated in real time.';
@@ -3470,6 +3506,17 @@ function showClientRealtimeModal(booking) {
   const timeStr = booking.eventTime ? ` @ ${booking.eventTime}` : '';
   document.getElementById('clientStatusDate').textContent = `${booking.eventDate || 'TBD'}${timeStr} (${booking.eventType || 'Event'})`;
   document.getElementById('clientStatusLocation').textContent = booking.location || 'Uganda';
+
+  const noteRow = document.getElementById('clientStatusNoteRow');
+  const noteText = document.getElementById('clientStatusNoteText');
+  if (noteRow && noteText) {
+    if (booking.adminNote && booking.adminNote.trim()) {
+      noteText.textContent = booking.adminNote.trim();
+      noteRow.style.display = 'block';
+    } else {
+      noteRow.style.display = 'none';
+    }
+  }
 
   const whatsappBtn = document.getElementById('clientStatusWhatsappBtn');
   if (whatsappBtn) {
@@ -3701,6 +3748,56 @@ function requestDeviceNotifications() {
   subscribeUserToNotifications();
 }
 
+function applyBookingUpsert(updated) {
+  if (!updated || !updated.id) return;
+  const idx = globalBookings.findIndex(b => b.id === updated.id);
+  const isNew = idx === -1;
+  const previous = isNew ? null : globalBookings[idx];
+
+  // Ignore stale/out-of-order writes (older revision arriving after a newer one)
+  if (previous && previous._rev && updated._rev && updated._rev < previous._rev) return;
+
+  if (isNew) {
+    globalBookings.unshift(updated);
+  } else {
+    globalBookings[idx] = { ...previous, ...updated };
+  }
+  renderBookings(globalBookings);
+  if (currentDetailBookingId === updated.id) {
+    openBookingDetails(updated.id, false);
+  }
+
+  if (isNew) {
+    setTimeout(() => {
+      const firstCard = document.querySelector('#adminBookingsList .booking-card');
+      if (firstCard) firstCard.classList.add('flash-new-booking');
+    }, 50);
+
+    if (lastAlertedBookingId !== updated.id) {
+      lastAlertedBookingId = updated.id;
+      playBookingAlertChime();
+      triggerDeviceNotification(updated);
+      showToast(`🚨 NEW BOOKING: ${updated.name} (${updated.eventType})`, 'success');
+    }
+  }
+
+  // Notify the client if this is their own booking and something changed
+  let myBookings = getMyBookings();
+  const matchIdx = myBookings.findIndex(b => b.id === updated.id);
+  if (matchIdx !== -1) {
+    const oldStatus = myBookings[matchIdx].status;
+    const oldNote = myBookings[matchIdx].adminNote || '';
+    const newNote = updated.adminNote || '';
+    myBookings[matchIdx] = { ...myBookings[matchIdx], ...updated };
+    localStorage.setItem('djwalker_my_bookings', JSON.stringify(myBookings));
+    renderUserBookingTracker();
+
+    if (oldStatus !== updated.status || (newNote && newNote !== oldNote)) {
+      showClientRealtimeModal(updated, newNote !== oldNote && oldStatus === updated.status);
+    }
+  }
+}
+
 function handleIncomingRealtimeEvent(data) {
   if (!data || !data.type) return;
 
@@ -3728,51 +3825,13 @@ function handleIncomingRealtimeEvent(data) {
       updateRealtimePresenceUI(true, data.activeDevices);
     }
   } else if (data.type === 'NEW_BOOKING' && data.booking) {
-    const newBooking = data.booking;
-    
-    // Check if already processed to prevent duplicate UI insertions
-    const exists = globalBookings.some(b => b.id === newBooking.id);
-    if (!exists) {
-      globalBookings.unshift(newBooking);
-      renderBookings(globalBookings);
-      
-      // Highlight new card
-      setTimeout(() => {
-        const firstCard = document.querySelector('#adminBookingsList .booking-card');
-        if (firstCard) firstCard.classList.add('flash-new-booking');
-      }, 50);
-    }
-
-    if (lastAlertedBookingId !== newBooking.id) {
-      lastAlertedBookingId = newBooking.id;
-      playBookingAlertChime();
-      triggerDeviceNotification(newBooking);
-      showToast(`🚨 NEW BOOKING: ${newBooking.name} (${newBooking.eventType})`, 'success');
-    }
+    applyBookingUpsert(data.booking);
 
   } else if (data.type === 'UPDATE_BOOKING' && data.booking) {
-    const updated = data.booking;
-    const idx = globalBookings.findIndex(b => b.id === updated.id);
-    if (idx !== -1) {
-      globalBookings[idx] = updated;
-    } else {
-      globalBookings.unshift(updated);
-    }
-    renderBookings(globalBookings);
+    applyBookingUpsert(data.booking);
 
-    // Update client status tracker if this user made the booking
-    let myBookings = getMyBookings();
-    const matchIdx = myBookings.findIndex(b => b.id === updated.id);
-    if (matchIdx !== -1) {
-      const oldStatus = myBookings[matchIdx].status;
-      myBookings[matchIdx] = updated;
-      localStorage.setItem('djwalker_my_bookings', JSON.stringify(myBookings));
-      renderUserBookingTracker();
-
-      if (oldStatus !== updated.status) {
-        showClientRealtimeModal(updated);
-      }
-    }
+  } else if (data.type === 'UPSERT_BOOKING' && data.booking) {
+    applyBookingUpsert(data.booking);
 
   } else if (data.type === 'DELETE_BOOKING' && data.id) {
     globalBookings = globalBookings.filter(b => b.id !== data.id);
@@ -3891,8 +3950,8 @@ function initSseFallback() {
   }
 }
 
-// Background sync heartbeat poll (every 4.5 seconds for bookings and 6.5 seconds for global tracks)
-setInterval(() => {
+// Background sync heartbeat poll (fast fallback so changes still land even if WS/SSE/Gun mesh is unavailable)
+function runHeartbeatSync() {
   if (isAdminUnlocked) {
     fetchBookings(true);
   } else {
@@ -3903,7 +3962,26 @@ setInterval(() => {
   }
   fetchTracks(true);
   fetchSiteInfo(true);
-}, 5000);
+}
+setInterval(runHeartbeatSync, 3000);
+
+// Re-sync instantly whenever the tab becomes active again (covers the common case
+// where a visitor left the tab in the background and the browser throttled timers/sockets)
+let lastForcedSyncAt = 0;
+function forceImmediateResyncIfStale() {
+  const now = Date.now();
+  if (now - lastForcedSyncAt < 1000) return; // debounce
+  lastForcedSyncAt = now;
+  runHeartbeatSync();
+  if (!realtimeWs || realtimeWs.readyState !== WebSocket.OPEN) {
+    initRealtimeEngine();
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') forceImmediateResyncIfStale();
+});
+window.addEventListener('focus', forceImmediateResyncIfStale);
+window.addEventListener('online', forceImmediateResyncIfStale);
 
 // Check if browser notification permission was already granted on startup
 if ('Notification' in window && Notification.permission === 'granted') {
@@ -3996,6 +4074,8 @@ function openBookingDetails(bookingId, autoOpen = true) {
   document.getElementById('modalEmailBtn').href = booking.email ? `mailto:${booking.email}` : '#';
 
   document.getElementById('modalNotesText').textContent = booking.notes ? booking.notes : 'No additional notes or instructions attached.';
+  const noteInput = document.getElementById('modalAdminNoteInput');
+  if (noteInput) noteInput.value = booking.adminNote || '';
 
   // Render Status Buttons
   const statuses = ['Pending', 'Contacted', 'Confirmed', 'Done', 'Declined'];
@@ -4043,30 +4123,46 @@ document.getElementById('bookingDetailModal')?.addEventListener('click', (e) => 
   }
 });
 
-async function updateBookingStatus(bookingId, newStatus) {
+// Shared helper: apply a booking patch (status, adminNote, etc.) locally + broadcast it
+// worldwide via the real-time mesh immediately, then best-effort sync to a backend if one exists.
+async function pushBookingUpdate(bookingId, patch, successMessage) {
   const b = globalBookings.find(item => item.id === bookingId);
-  if (b) {
-    b.status = newStatus;
-    renderBookings(globalBookings);
-    broadcastToMesh('UPDATE_BOOKING', { bookings: globalBookings, booking: b });
-  }
+  if (!b) return;
 
+  Object.assign(b, patch, { _rev: Date.now() });
+  renderBookings(globalBookings);
+  if (currentDetailBookingId === bookingId) openBookingDetails(bookingId, false);
+
+  // Instant, reliable delivery to every connected admin/client device via Gun mesh + same-tab broadcast
+  broadcastToMesh('UPDATE_BOOKING', { booking: b });
+  if (successMessage) showToast(successMessage, 'success');
+
+  // Best-effort: also try a backend if one is configured/reachable (not required for real-time sync to work)
   try {
     const res = await fetch(apiUrl(`/api/bookings/${encodeURIComponent(bookingId)}/status`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus })
+      body: JSON.stringify(patch)
     });
-    if (res.ok) {
-      showToast(`Status updated to "${newStatus}"`, 'success');
-      fetchBookings();
-    } else {
-      showToast('Failed to update status.', 'error');
-    }
+    if (res.ok) fetchBookings();
   } catch (err) {
-    showToast('Failed to update status.', 'error');
+    // Silent: the mesh broadcast above already delivered this update everywhere that's connected.
   }
 }
+
+async function updateBookingStatus(bookingId, newStatus) {
+  await pushBookingUpdate(bookingId, { status: newStatus }, `Status updated to "${newStatus}" — live everywhere`);
+}
+
+async function updateBookingNote(bookingId) {
+  const input = document.getElementById('modalAdminNoteInput');
+  const note = input ? input.value.trim() : '';
+  await pushBookingUpdate(bookingId, { adminNote: note }, note ? 'Feedback sent to client — live now 📤' : 'Feedback cleared.');
+}
+
+document.getElementById('modalSendNoteBtn')?.addEventListener('click', () => {
+  if (currentDetailBookingId) updateBookingNote(currentDetailBookingId);
+});
 
 async function clearDoneBookings(btnElement) {
   const doneBookings = globalBookings.filter(b => b.status === 'Done' || b.status === 'Completed');
@@ -4093,22 +4189,17 @@ async function clearDoneBookings(btnElement) {
     return;
   }
 
+  const purgedIds = doneBookings.map(b => b.id);
   globalBookings = globalBookings.filter(b => b.status !== 'Done' && b.status !== 'Completed');
   renderBookings(globalBookings);
-  broadcastToMesh('UPDATE_BOOKING', { bookings: globalBookings });
+  broadcastToMesh('DELETE_BOOKING', { ids: purgedIds });
+  showToast(`Removed ${purgedIds.length} completed/done booking(s) — live everywhere.`, 'success');
 
   try {
     const res = await fetch(apiUrl('/api/bookings/clear-done'), { method: 'DELETE' });
-    if (res.ok) {
-      const data = await res.json();
-      showToast(`Removed ${data.removedCount || doneBookings.length} completed/done booking(s).`, 'success');
-      fetchBookings();
-    } else {
-      showToast('Failed to remove done bookings.', 'error');
-    }
+    if (res.ok) fetchBookings();
   } catch (err) {
-    console.error('Error clearing done bookings:', err);
-    showToast('Failed to remove done bookings.', 'error');
+    // Silent: already removed locally and broadcast to the mesh above.
   }
 }
 
@@ -4133,18 +4224,15 @@ async function deleteBooking(bookingId, btnElement) {
 
   globalBookings = globalBookings.filter(b => b.id !== bookingId);
   renderBookings(globalBookings);
-  broadcastToMesh('DELETE_BOOKING', { bookings: globalBookings });
+  closeBookingDetailsModal();
+  broadcastToMesh('DELETE_BOOKING', { id: bookingId });
+  showToast('Booking deleted — live everywhere.', 'info');
 
   try {
     const res = await fetch(apiUrl(`/api/bookings/${encodeURIComponent(bookingId)}`), { method: 'DELETE' });
-    if (res.ok) {
-      showToast('Booking deleted.', 'info');
-      fetchBookings();
-    } else {
-      showToast('Error deleting booking.', 'error');
-    }
+    if (res.ok) fetchBookings();
   } catch (err) {
-    showToast('Error deleting booking.', 'error');
+    // Silent: already removed locally and broadcast to the mesh above.
   }
 }
 
@@ -4181,7 +4269,7 @@ document.getElementById('closeAdminAuthBtn').addEventListener('click', () => {
 
 document.getElementById('adminAuthForm').addEventListener('submit', (e) => {
   e.preventDefault();
-  const pwd = document.getElementById('adminPasswordInput').value;
+  const pwd = document.getElementById('adminPasswordInput').value.trim();
   if (pwd === 'DJWalkerUG2026') {
     isAdminUnlocked = true;
     sessionStorage.setItem('djwalker_admin_unlocked', 'true');
