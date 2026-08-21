@@ -30,6 +30,10 @@
 <!-- Decentralized Real-Time Mesh (Gun.js) for instantaneous multi-device synchronization -->
 <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
 
+<!-- Firebase Realtime Database — primary cross-device live sync for bookings (no server to run/maintain) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+
 <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
   OneSignalDeferred.push(async function(OneSignal) {
@@ -1116,7 +1120,7 @@
     <div class="admin-tabs">
       <button class="admin-tab active" data-tab="tracksTab">🎵 Global Tracks</button>
       <button class="admin-tab" data-tab="siteTab">⚙️ Site Settings &amp; Bio</button>
-      <button class="admin-tab" data-tab="bookingsTab">📬 Booking Requests (<span id="bookingCount">0</span>)</button>
+      <button class="admin-tab" data-tab="bookingsTab">📬 Booking Requests (<span id="bookingCountTab">0</span>)</button>
     </div>
 
     <!-- TAB 1: TRACKS -->
@@ -1291,7 +1295,7 @@
       </div>
 
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
-        <h3 style="margin:0;">Incoming Booking Requests (<span id="bookingCount">0</span>)</h3>
+        <h3 style="margin:0;">Incoming Booking Requests (<span id="bookingCountHeader">0</span>)</h3>
         <span class="mono" style="font-size:12px; color:var(--text-dim);">⚡ Instant updates streamed globally across all open screens</span>
       </div>
       <div id="adminBookingsList"></div>
@@ -1455,6 +1459,217 @@ try {
   }
 } catch (e) {
   console.warn('Initial localStorage load warning:', e);
+}
+
+// ---------- FIREBASE REALTIME DATABASE (primary cross-device booking sync) ----------
+// This is a free Firebase project's config — it is safe to expose publicly (it is not
+// a secret key), but access to the database itself is controlled by Firebase Security Rules.
+// To activate live cross-device booking sync, paste your project's config below.
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyC_FDxc-X6y66u8_gTZZtq0mBcxg-uQ2X4",
+  authDomain: "djwalker-ug.firebaseapp.com",
+  databaseURL: "https://djwalker-ug-default-rtdb.firebaseio.com",
+  projectId: "djwalker-ug",
+  storageBucket: "djwalker-ug.firebasestorage.app",
+  messagingSenderId: "696514989735",
+  appId: "1:696514989735:web:4b1355132cc7d4adbb9582"
+};
+
+let firebaseBookingsRef = null;
+let firebaseBookingsReady = false;
+let firebaseTracksRef = null;
+let firebaseTracksReady = false;
+let firebaseSiteInfoRef = null;
+let firebaseSiteInfoReady = false;
+
+function isFirebaseConfigured() {
+  return FIREBASE_CONFIG.databaseURL && !FIREBASE_CONFIG.databaseURL.includes('YOUR_PROJECT_ID');
+}
+
+try {
+  if (typeof firebase !== 'undefined' && isFirebaseConfigured()) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    firebaseBookingsRef = firebase.database().ref('bookings');
+    firebaseTracksRef = firebase.database().ref('tracks');
+    firebaseSiteInfoRef = firebase.database().ref('siteInfo');
+  } else {
+    console.warn('Firebase not configured yet — cross-device live booking sync is disabled until FIREBASE_CONFIG is filled in.');
+  }
+} catch (err) {
+  console.warn('Firebase initialization failed:', err);
+  firebaseBookingsRef = null;
+  firebaseTracksRef = null;
+  firebaseSiteInfoRef = null;
+}
+
+// Writes a booking to Firebase so every open device (admin portal or client) sees it instantly.
+async function pushBookingToFirebase(booking) {
+  if (!firebaseBookingsRef) return false;
+  try {
+    await firebaseBookingsRef.child(booking.id).set(booking);
+    return true;
+  } catch (err) {
+    console.warn('Firebase booking write failed:', err);
+    return false;
+  }
+}
+
+async function pushBookingUpdateToFirebase(booking) {
+  if (!firebaseBookingsRef) return false;
+  try {
+    await firebaseBookingsRef.child(booking.id).update(booking);
+    return true;
+  } catch (err) {
+    console.warn('Firebase booking update failed:', err);
+    return false;
+  }
+}
+
+async function removeBookingFromFirebase(id) {
+  if (!firebaseBookingsRef) return false;
+  try {
+    await firebaseBookingsRef.child(id).remove();
+    return true;
+  } catch (err) {
+    console.warn('Firebase booking removal failed:', err);
+    return false;
+  }
+}
+
+// Attaches the live listener. Any booking written from ANY device (phone, laptop, etc.)
+// streams into every other open tab within a second or two — no polling required.
+function initFirebaseBookingsSync() {
+  if (!firebaseBookingsRef) return;
+
+  firebaseBookingsRef.once('value').then((snap) => {
+    const val = snap.val() || {};
+    const initialIds = new Set(Object.keys(val));
+
+    // Seed local state quietly from the initial snapshot (no alert sounds for pre-existing bookings)
+    const initialBookings = Object.values(val).filter(Boolean);
+    if (initialBookings.length > 0) {
+      initialBookings.forEach(b => applyBookingUpsert(b, true));
+    }
+    firebaseBookingsReady = true;
+    updateRealtimePresenceUI(true);
+
+    firebaseBookingsRef.on('child_added', (childSnap) => {
+      const booking = childSnap.val();
+      if (!booking) return;
+      // Suppress the "new booking" alert only for bookings that were already present
+      // in the very first snapshot we just loaded above.
+      applyBookingUpsert(booking, initialIds.has(childSnap.key));
+    });
+
+    firebaseBookingsRef.on('child_changed', (childSnap) => {
+      const booking = childSnap.val();
+      if (booking) applyBookingUpsert(booking, true);
+    });
+
+    firebaseBookingsRef.on('child_removed', (childSnap) => {
+      globalBookings = globalBookings.filter(b => b.id !== childSnap.key);
+      renderBookings(globalBookings);
+    });
+  }).catch((err) => {
+    console.warn('Firebase initial bookings load failed:', err);
+    updateRealtimePresenceUI(false);
+  });
+
+  firebase.database().ref('.info/connected').on('value', (snap) => {
+    if (firebaseBookingsReady) updateRealtimePresenceUI(snap.val() === true);
+  });
+}
+
+// ---------- FIREBASE: TRACKS (playlist) LIVE SYNC ----------
+async function pushTrackToFirebase(track) {
+  if (!firebaseTracksRef) return false;
+  try {
+    await firebaseTracksRef.child(track.id).set(track);
+    return true;
+  } catch (err) {
+    console.warn('Firebase track write failed:', err);
+    return false;
+  }
+}
+
+async function removeTrackFromFirebase(id) {
+  if (!firebaseTracksRef) return false;
+  try {
+    await firebaseTracksRef.child(id).remove();
+    return true;
+  } catch (err) {
+    console.warn('Firebase track removal failed:', err);
+    return false;
+  }
+}
+
+function initFirebaseTracksSync() {
+  if (!firebaseTracksRef) return;
+  firebaseTracksRef.on('value', (snap) => {
+    const val = snap.val();
+    const tracks = val ? Object.values(val).filter(Boolean) : [];
+
+    if (tracks.length === 0) {
+      // Nothing saved in Firebase yet (fresh project) — keep local/default tracks as-is.
+      firebaseTracksReady = true;
+      return;
+    }
+
+    const oldIds = new Set(globalTracks.map(t => t.id));
+    const newlyAdded = tracks.filter(t => !oldIds.has(t.id));
+    globalTracks = tracks;
+    try { localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks)); } catch (e) {}
+    renderTracksList();
+    renderAdminTracks();
+
+    if (firebaseTracksReady && newlyAdded.length > 0) {
+      playBookingAlertChime();
+      showToast(`🔥 NEW RELEASE: "${newlyAdded[0].title}" dropped live by DJ Walker UG! 🎶`, 'success');
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification('DJ Walker UG · New Release Live!', {
+            body: `Now live: "${newlyAdded[0].title}" (${newlyAdded[0].genre}). Tap to listen!`,
+            icon: resolveMediaUrl(newlyAdded[0].cover)
+          });
+        } catch (e) {}
+      }
+    } else if (firebaseTracksReady) {
+      showToast('Live playlist updated worldwide! 🎶', 'info');
+    }
+    firebaseTracksReady = true;
+  }, (err) => {
+    console.warn('Firebase tracks listener error:', err);
+  });
+}
+
+// ---------- FIREBASE: SITE INFO LIVE SYNC ----------
+async function pushSiteInfoToFirebase(info) {
+  if (!firebaseSiteInfoRef) return false;
+  try {
+    await firebaseSiteInfoRef.set(info);
+    return true;
+  } catch (err) {
+    console.warn('Firebase site info write failed:', err);
+    return false;
+  }
+}
+
+function initFirebaseSiteInfoSync() {
+  if (!firebaseSiteInfoRef) return;
+  firebaseSiteInfoRef.on('value', (snap) => {
+    const val = snap.val();
+    if (val && typeof val === 'object') {
+      globalSiteInfo = { ...defaultSiteInfo, ...val };
+      if (val.stats) globalSiteInfo.stats = { ...defaultSiteInfo.stats, ...val.stats };
+      if (val.socials) globalSiteInfo.socials = { ...defaultSiteInfo.socials, ...val.socials };
+      try { localStorage.setItem('djwalker_site_info', JSON.stringify(globalSiteInfo)); } catch (e) {}
+      renderSiteInfo();
+      if (firebaseSiteInfoReady) showToast('Site info updated live! 🌐', 'info');
+    }
+    firebaseSiteInfoReady = true;
+  }, (err) => {
+    console.warn('Firebase site info listener error:', err);
+  });
 }
 
 // ---------- TOAST SYSTEM ----------
@@ -2600,7 +2815,15 @@ document.getElementById('bookingForm').addEventListener('submit', async (e) => {
   let success = false;
   let serverBooking = null;
 
-  // 2. Submit to server endpoint (resolves to Cloud Relay on GitHub Pages)
+  // 2. Primary real-time channel: write straight to Firebase so every open
+  // device (admin portal or client) sees this booking within a second or two.
+  const firebaseOk = await pushBookingToFirebase(data);
+  if (firebaseOk) {
+    success = true;
+    serverBooking = data;
+  }
+
+  // 3. Also try a custom backend if one is configured/reachable (optional — not required)
   try {
     const res = await fetch(apiUrl('/api/bookings'), {
       method: 'POST',
@@ -2929,7 +3152,10 @@ async function deleteAdminTrack(trackId, btnElement) {
   }
   showToast('Track deleted and synchronized!', 'success');
 
-  // 2. Sync deletion to server backend
+  // 2. Sync deletion to Firebase (primary real-time channel)
+  removeTrackFromFirebase(trackId);
+
+  // 3. Also try a custom backend if one is configured/reachable (optional — not required)
   try {
     const res = await fetch(apiUrl(`/api/tracks/${encodeURIComponent(trackId)}`), { method: 'DELETE' });
     if (res.ok) {
@@ -2948,16 +3174,18 @@ async function deleteAdminTrack(trackId, btnElement) {
   broadcastToMesh('TRACKS_UPDATED', { tracks: globalTracks });
 }
 
-// Universal media upload helper with 3-tier fallback (Server Multipart -> Server Base64 -> Client IndexedDB/DataURL)
+// Media upload helper: tries a custom backend first (if one is ever deployed), then
+// falls back instantly to on-device storage. No more multi-minute hangs — this always
+// resolves within a few seconds.
 async function uploadMediaFile(file, isAudio = true) {
   if (!file) return null;
 
-  // 1. Try standard FormData multipart upload to global server
+  // 1. Try a custom backend if one is configured/reachable (optional — most setups won't have this)
   try {
     const formData = new FormData();
     formData.append('file', file, file.name);
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes for large audio tracks / mixes
+    const timeoutId = setTimeout(() => controller.abort(), 6000); // fail fast — don't hang the UI waiting on a backend that isn't there
     const res = await fetch(apiUrl('/api/upload'), {
       method: 'POST',
       body: formData,
@@ -2969,41 +3197,13 @@ async function uploadMediaFile(file, isAudio = true) {
       if (data && data.fileUrl) return data.fileUrl;
     }
   } catch (err) {
-    console.warn('Multipart upload error, trying base64 fallback:', err.message);
+    console.warn('No custom upload backend reachable, saving to this device instead:', err.message);
   }
 
-  // 2. Base64 server fallback
-  try {
-    const base64Data = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result);
-      reader.onerror = () => reject(new Error('Failed to read file on device'));
-      reader.readAsDataURL(file);
-    });
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 120000);
-    const res = await fetch(apiUrl('/api/upload-base64'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        data: base64Data,
-        filename: file.name,
-        mimeType: file.type || (isAudio ? 'audio/mpeg' : 'image/jpeg')
-      }),
-      signal: controller.signal
-    });
-    clearTimeout(timeoutId);
-
-    if (res.ok) {
-      const data = await res.json().catch(() => null);
-      if (data && data.fileUrl) return data.fileUrl;
-    }
-  } catch (fallbackErr) {
-    console.warn('Server base64 upload not reachable, saving to local browser vault:', fallbackErr.message);
-  }
-
-  // 3. Guaranteed Client-Side Fail-Safe Storage for GitHub Pages (jaywalker256.github.io) and offline use
+  // 2. Guaranteed client-side storage — instant, no network required.
+  // Note: this saves the file only on THIS device/browser. For a track that plays
+  // correctly on every device, paste a direct audio URL into the "Audio File URL"
+  // field instead of uploading a file.
   try {
     const mediaId = `media_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     await MediaVault.saveMedia(mediaId, file, file.type, file.name);
@@ -3051,6 +3251,9 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
 
   showToast('Broadcasting track to live cloud servers & devices worldwide...', 'info');
 
+  // Wrapped in try/finally so the submit button can NEVER get stuck disabled,
+  // no matter what goes wrong below.
+  try {
   // 1. Handle Audio File Upload
   if (audioFile) {
     try {
@@ -3098,7 +3301,10 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
     featured: true
   };
 
-  // 3. Primary Sync to Live Global Backend (Triggers WebSocket broadcast to all live devices worldwide)
+  // 3. Primary real-time channel: write straight to Firebase so every device sees this instantly.
+  const firebaseTrackOk = await pushTrackToFirebase(payload);
+
+  // Also try a custom backend if one is configured/reachable (optional — not required)
   const method = trackId ? 'PUT' : 'POST';
   const url = trackId ? `/api/tracks/${encodeURIComponent(trackId)}` : '/api/tracks';
 
@@ -3128,8 +3334,8 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
     console.warn('Server sync error, falling back to local mesh:', err);
   }
 
-  // If server was temporarily not reachable, apply update locally
-  if (!syncedWithServer) {
+  // If neither Firebase nor a custom backend confirmed the write, apply update locally
+  if (!syncedWithServer && !firebaseTrackOk) {
     if (trackId) {
       const idx = globalTracks.findIndex(t => t.id === trackId);
       if (idx !== -1) globalTracks[idx] = { ...globalTracks[idx], ...payload };
@@ -3147,17 +3353,25 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
   renderAdminTracks();
   cancelAdminTrackEdit();
 
-  if (submitBtn) {
-    submitBtn.disabled = false;
-    submitBtn.textContent = '➕ Add Track';
-  }
+  const savedLocallyOnly = payload.src.startsWith('idb://') || payload.cover.startsWith('idb://') || payload.src.startsWith('data:') || payload.cover.startsWith('data:');
 
   showToast(
-    trackId 
-      ? `Track "${payload.title}" updated and synced live across devices worldwide! 🌐🎶` 
-      : `Release "${payload.title}" uploaded & live across devices worldwide! 🌐🎶`, 
-    'success'
+    savedLocallyOnly
+      ? `Track "${payload.title}" saved — but the file itself is only stored on THIS device. Paste a direct URL in the Audio/Cover URL field for it to play on every device.`
+      : (trackId
+          ? `Track "${payload.title}" updated and synced live across devices worldwide! 🌐🎶`
+          : `Release "${payload.title}" uploaded & live across devices worldwide! 🌐🎶`),
+    savedLocallyOnly ? 'info' : 'success'
   );
+  } catch (err) {
+    console.error('Track save error:', err);
+    showToast('Something went wrong saving this track. Check the browser console for details.', 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalBtnText || '➕ Add Track';
+    }
+  }
 });
 
 function cancelAdminTrackEdit() {
@@ -3231,7 +3445,10 @@ document.getElementById('adminSiteForm').addEventListener('submit', async (e) =>
   broadcastToMesh('SITE_INFO_UPDATED', { siteInfo: globalSiteInfo });
   showToast('Site settings updated and saved!', 'success');
 
-  // 2. Persist to server
+  // 2. Primary real-time channel: write straight to Firebase so every device sees this instantly.
+  pushSiteInfoToFirebase(globalSiteInfo);
+
+  // 3. Also try a custom backend if one is configured/reachable (optional — not required)
   try {
     const res = await fetch(apiUrl('/api/site-info'), {
       method: 'PUT',
@@ -3748,7 +3965,7 @@ function requestDeviceNotifications() {
   subscribeUserToNotifications();
 }
 
-function applyBookingUpsert(updated) {
+function applyBookingUpsert(updated, suppressAlert = false) {
   if (!updated || !updated.id) return;
   const idx = globalBookings.findIndex(b => b.id === updated.id);
   const isNew = idx === -1;
@@ -3773,7 +3990,7 @@ function applyBookingUpsert(updated) {
       if (firstCard) firstCard.classList.add('flash-new-booking');
     }, 50);
 
-    if (lastAlertedBookingId !== updated.id) {
+    if (!suppressAlert && lastAlertedBookingId !== updated.id) {
       lastAlertedBookingId = updated.id;
       playBookingAlertChime();
       triggerDeviceNotification(updated);
@@ -3998,7 +4215,8 @@ if ('Notification' in window && Notification.permission === 'granted') {
 let currentDetailBookingId = null;
 
 function renderBookings(bookings) {
-  document.getElementById('bookingCount').textContent = bookings.length;
+  document.getElementById('bookingCountTab').textContent = bookings.length;
+  document.getElementById('bookingCountHeader').textContent = bookings.length;
   const container = document.getElementById('adminBookingsList');
   if (!container) return;
 
@@ -4137,6 +4355,9 @@ async function pushBookingUpdate(bookingId, patch, successMessage) {
   broadcastToMesh('UPDATE_BOOKING', { booking: b });
   if (successMessage) showToast(successMessage, 'success');
 
+  // Primary real-time channel: Firebase (works across devices, not just tabs)
+  pushBookingUpdateToFirebase(b);
+
   // Best-effort: also try a backend if one is configured/reachable (not required for real-time sync to work)
   try {
     const res = await fetch(apiUrl(`/api/bookings/${encodeURIComponent(bookingId)}/status`), {
@@ -4193,6 +4414,7 @@ async function clearDoneBookings(btnElement) {
   globalBookings = globalBookings.filter(b => b.status !== 'Done' && b.status !== 'Completed');
   renderBookings(globalBookings);
   broadcastToMesh('DELETE_BOOKING', { ids: purgedIds });
+  purgedIds.forEach(id => removeBookingFromFirebase(id));
   showToast(`Removed ${purgedIds.length} completed/done booking(s) — live everywhere.`, 'success');
 
   try {
@@ -4226,6 +4448,7 @@ async function deleteBooking(bookingId, btnElement) {
   renderBookings(globalBookings);
   closeBookingDetailsModal();
   broadcastToMesh('DELETE_BOOKING', { id: bookingId });
+  removeBookingFromFirebase(bookingId);
   showToast('Booking deleted — live everywhere.', 'info');
 
   try {
@@ -4488,6 +4711,9 @@ renderTracksList();
 fetchTracks();
 fetchSiteInfo();
 initRealtimeEngine();
+initFirebaseBookingsSync();
+initFirebaseTracksSync();
+initFirebaseSiteInfoSync();
 renderUserBookingTracker();
 if (isAdminUnlocked) {
   enterAdminMode();
