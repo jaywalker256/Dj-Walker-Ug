@@ -2318,7 +2318,9 @@ async function togglePlayTrack(trackId) {
     }
   };
 
-  // Resilient multi-tier audio fallback cascade
+  // Resilient retry for legitimate ALTERNATE ROUTES to the SAME file only.
+  // This never substitutes a different track — if the real audio can't be loaded,
+  // playback stops and the person is told honestly, instead of playing a placeholder.
   const onAudioError = (e) => {
     if (currentSessionId !== activePlaybackSessionId || !activeTrack || activeTrack.sessionId !== currentSessionId) return;
     if (activeTrack.paused) return; // User explicitly paused or cancelled
@@ -2333,7 +2335,7 @@ async function togglePlayTrack(trackId) {
         audio.load();
         if (!activeTrack.paused && currentSessionId === activePlaybackSessionId) {
           audio.play().catch(err => {
-            if (err.name !== 'AbortError' && currentSessionId === activePlaybackSessionId) triggerNextFallback();
+            if (err.name !== 'AbortError' && currentSessionId === activePlaybackSessionId) handlePlaybackFailure();
           });
         }
         return;
@@ -2343,43 +2345,39 @@ async function togglePlayTrack(trackId) {
         audio.load();
         if (!activeTrack.paused && currentSessionId === activePlaybackSessionId) {
           audio.play().catch(err => {
-            if (err.name !== 'AbortError' && currentSessionId === activePlaybackSessionId) triggerNextFallback();
+            if (err.name !== 'AbortError' && currentSessionId === activePlaybackSessionId) handlePlaybackFailure();
           });
         }
         return;
       } else {
-        triggerNextFallback();
+        handlePlaybackFailure();
       }
-    } else if (retryTier === 2) {
-      triggerNextFallback();
+    } else {
+      handlePlaybackFailure();
     }
   };
 
-  function triggerNextFallback() {
+  // Stops playback cleanly and tells the person honestly why, instead of
+  // substituting a placeholder track and pretending it's the real one.
+  function handlePlaybackFailure() {
     if (currentSessionId !== activePlaybackSessionId || !activeTrack || activeTrack.sessionId !== currentSessionId) return;
     if (activeTrack.paused) return;
 
-    const builtInSamples = [
-      '/assets/audio/good-morning-my-love.wav',
-      '/assets/audio/pearl-of-africa.wav',
-      '/assets/audio/kampala-club-vol1.wav',
-      '/assets/audio/stress-killer-mix.wav'
-    ];
-    const sample = builtInSamples[Math.floor(Math.random() * builtInSamples.length)];
-    if (audio.src !== window.location.origin + sample) {
-      showToast(`Streaming high-fidelity studio mix for "${track.title}"`, 'info');
-      audio.src = sample;
-      audio.load();
-      if (!activeTrack.paused && currentSessionId === activePlaybackSessionId) {
-        audio.play().catch(err => {
-          if (err.name !== 'AbortError' && currentSessionId === activePlaybackSessionId && !activeTrack.paused) {
-            startSyntheticAfrobeatsFallback(track, currentSessionId);
-          }
-        });
-      }
-    } else {
-      startSyntheticAfrobeatsFallback(track, currentSessionId);
-    }
+    const rawSrc = track.src || '';
+    const isDeviceLocalFile = rawSrc.startsWith('idb://') || rawSrc.startsWith('data:') || rawSrc.startsWith('blob:');
+
+    showToast(
+      isDeviceLocalFile
+        ? `Can't play "${track.title}" here — this file was uploaded from a different device/browser and only exists there. Re-add it using a direct audio URL (not a file upload) so it plays on every device.`
+        : `Can't play "${track.title}" — the audio couldn't be loaded from its source. Double-check the audio URL.`,
+      'error'
+    );
+
+    activeTrack = null;
+    try { audio.pause(); audio.src = ''; } catch (e) {}
+    updatePlayerUI();
+    renderTracksList();
+    renderAdminTracks();
   }
 
   // Remove stale handlers before attaching new session handlers
