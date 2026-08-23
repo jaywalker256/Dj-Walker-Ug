@@ -33,6 +33,10 @@
 <!-- Firebase Realtime Database — primary cross-device live sync for bookings (no server to run/maintain) -->
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
+
+<!-- Supabase Storage — free, no-card-required file hosting for uploaded audio/cover files -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
   window.OneSignalDeferred = window.OneSignalDeferred || [];
@@ -1481,6 +1485,7 @@ let firebaseTracksRef = null;
 let firebaseTracksReady = false;
 let firebaseSiteInfoRef = null;
 let firebaseSiteInfoReady = false;
+let firebaseStorageInstance = null;
 
 function isFirebaseConfigured() {
   return FIREBASE_CONFIG.databaseURL && !FIREBASE_CONFIG.databaseURL.includes('YOUR_PROJECT_ID');
@@ -1492,6 +1497,16 @@ try {
     firebaseBookingsRef = firebase.database().ref('bookings');
     firebaseTracksRef = firebase.database().ref('tracks');
     firebaseSiteInfoRef = firebase.database().ref('siteInfo');
+    if (typeof firebase.storage === 'function') {
+      try {
+        firebaseStorageInstance = firebase.storage();
+      } catch (storageErr) {
+        // Firebase Storage isn't enabled for this project yet (needs the Blaze plan).
+        // File uploads will fall back to on-device storage until it's turned on.
+        console.warn('Firebase Storage not available yet:', storageErr.message);
+        firebaseStorageInstance = null;
+      }
+    }
   } else {
     console.warn('Firebase not configured yet — cross-device live booking sync is disabled until FIREBASE_CONFIG is filled in.');
   }
@@ -1500,6 +1515,57 @@ try {
   firebaseBookingsRef = null;
   firebaseTracksRef = null;
   firebaseSiteInfoRef = null;
+  firebaseStorageInstance = null;
+}
+
+// ---------- SUPABASE STORAGE (free, no-card-required file hosting for uploads) ----------
+// Create a free project at supabase.com (email signup only, no credit card), make a
+// public Storage bucket named "media", and paste the Project URL + anon public key below.
+const SUPABASE_CONFIG = {
+  url: "https://mnmmbqeavvqnjwhncetb.supabase.co",
+  anonKey: "sb_publishable_ZUjDJtQe8ILaDmAaatuL8A_tD7tm2lk",
+  bucket: "media"
+};
+
+let supabaseClient = null;
+
+function isSupabaseConfigured() {
+  return SUPABASE_CONFIG.url &&
+    !SUPABASE_CONFIG.url.includes('YOUR_SUPABASE_PROJECT_URL') &&
+    SUPABASE_CONFIG.anonKey &&
+    !SUPABASE_CONFIG.anonKey.includes('YOUR_SUPABASE_ANON_KEY');
+}
+
+try {
+  if (typeof supabase !== 'undefined' && isSupabaseConfigured()) {
+    supabaseClient = supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+  } else {
+    console.warn('Supabase not configured yet — file uploads will fall back to on-device storage until SUPABASE_CONFIG is filled in.');
+  }
+} catch (err) {
+  console.warn('Supabase initialization failed:', err);
+  supabaseClient = null;
+}
+
+// Uploads a file to the Supabase Storage bucket and returns its public URL.
+async function uploadToSupabase(file, isAudio) {
+  if (!supabaseClient) return null;
+  const folder = isAudio ? 'audio' : 'covers';
+  const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+  const path = `${folder}/${Date.now()}_${safeName}`;
+
+  const { error } = await supabaseClient.storage
+    .from(SUPABASE_CONFIG.bucket)
+    .upload(path, file, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: file.type || (isAudio ? 'audio/mpeg' : 'image/jpeg')
+    });
+
+  if (error) throw error;
+
+  const { data } = supabaseClient.storage.from(SUPABASE_CONFIG.bucket).getPublicUrl(path);
+  return data && data.publicUrl ? data.publicUrl : null;
 }
 
 // Writes a booking to Firebase so every open device (admin portal or client) sees it instantly.
@@ -3172,13 +3238,60 @@ async function deleteAdminTrack(trackId, btnElement) {
   broadcastToMesh('TRACKS_UPDATED', { tracks: globalTracks });
 }
 
-// Media upload helper: tries a custom backend first (if one is ever deployed), then
-// falls back instantly to on-device storage. No more multi-minute hangs — this always
-// resolves within a few seconds.
-async function uploadMediaFile(file, isAudio = true) {
+// Media upload helper: uploads to Firebase Storage (real, cross-device file hosting)
+// when it's available, otherwise falls back to on-device storage instantly — never
+// hangs for minutes waiting on a dead server.
+async function uploadMediaFile(file, isAudio = true, onProgress = null) {
   if (!file) return null;
 
-  // 1. Try a custom backend if one is configured/reachable (optional — most setups won't have this)
+  // 1. Supabase Storage — free, no card required, a real hosted URL that plays on every device.
+  if (supabaseClient) {
+    try {
+      if (onProgress) onProgress(0);
+      const url = await uploadToSupabase(file, isAudio);
+      if (onProgress) onProgress(100);
+      if (url) return url;
+    } catch (err) {
+      console.warn('Supabase upload failed, falling back:', err.message || err);
+    }
+  }
+
+  // 2. Firebase Storage — a real hosted URL that plays on every device (requires Blaze plan).
+  if (firebaseStorageInstance) {
+    try {
+      const folder = isAudio ? 'tracks/audio' : 'tracks/covers';
+      const safeName = file.name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+      const path = `${folder}/${Date.now()}_${safeName}`;
+      const storageRef = firebaseStorageInstance.ref().child(path);
+      const uploadTask = storageRef.put(file, { contentType: file.type || (isAudio ? 'audio/mpeg' : 'image/jpeg') });
+
+      const downloadUrl = await new Promise((resolve, reject) => {
+        uploadTask.on('state_changed',
+          (snapshot) => {
+            if (onProgress) {
+              const pct = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+              onProgress(pct);
+            }
+          },
+          (err) => reject(err),
+          async () => {
+            try {
+              const url = await uploadTask.snapshot.ref.getDownloadURL();
+              resolve(url);
+            } catch (err) {
+              reject(err);
+            }
+          }
+        );
+      });
+
+      if (downloadUrl) return downloadUrl;
+    } catch (err) {
+      console.warn('Firebase Storage upload failed, falling back:', err.message);
+    }
+  }
+
+  // 3. Try a custom backend if one is configured/reachable (optional — most setups won't have this)
   try {
     const formData = new FormData();
     formData.append('file', file, file.name);
@@ -3198,10 +3311,9 @@ async function uploadMediaFile(file, isAudio = true) {
     console.warn('No custom upload backend reachable, saving to this device instead:', err.message);
   }
 
-  // 2. Guaranteed client-side storage — instant, no network required.
-  // Note: this saves the file only on THIS device/browser. For a track that plays
-  // correctly on every device, paste a direct audio URL into the "Audio File URL"
-  // field instead of uploading a file.
+  // 4. Guaranteed client-side storage — instant, no network required.
+  // Note: this saves the file only on THIS device/browser. It won't be
+  // playable on other devices unless Supabase or Firebase Storage is configured (see above).
   try {
     const mediaId = `media_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     await MediaVault.saveMedia(mediaId, file, file.type, file.name);
@@ -3255,7 +3367,9 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
   // 1. Handle Audio File Upload
   if (audioFile) {
     try {
-      const uploadedAudioUrl = await uploadMediaFile(audioFile, true);
+      const uploadedAudioUrl = await uploadMediaFile(audioFile, true, (pct) => {
+        if (submitBtn) submitBtn.textContent = `⏳ Uploading audio... ${pct}%`;
+      });
       if (uploadedAudioUrl) {
         src = uploadedAudioUrl;
       }
@@ -3270,7 +3384,9 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
   // 2. Handle Cover Image Upload
   if (coverFile) {
     try {
-      const uploadedCoverUrl = await uploadMediaFile(coverFile, false);
+      const uploadedCoverUrl = await uploadMediaFile(coverFile, false, (pct) => {
+        if (submitBtn) submitBtn.textContent = `⏳ Uploading cover... ${pct}%`;
+      });
       if (uploadedCoverUrl) {
         cover = uploadedCoverUrl;
       }
