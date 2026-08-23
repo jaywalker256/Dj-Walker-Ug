@@ -1851,14 +1851,14 @@ function broadcastToMesh(type, payload = {}) {
   broadcastLocally({ type, ...payload });
 
   // 2. Global Decentralized Gun Mesh (Instant worldwide real-time multi-device sync)
+  // NOTE: tracks/siteInfo are intentionally NOT sent over Gun — they're whole-object
+  // blobs on shared public relays, which can replay a stale copy and stomp a fresh
+  // edit. Firebase (per-child, with proper merge logic) is the sole sync channel for
+  // those now. Bookings stay on Gun since each one lives at its own node.
   if (gunMesh) {
     try {
       const channel = gunMesh.get('djwalker_ug_global_mesh_v7');
-      if (type === 'TRACKS_UPDATED') {
-        channel.get('tracks').put(JSON.stringify({ tracks: payload.tracks || globalTracks, timestamp: Date.now() }));
-      } else if (type === 'SITE_INFO_UPDATED') {
-        channel.get('siteInfo').put(JSON.stringify({ siteInfo: payload.siteInfo || globalSiteInfo, timestamp: Date.now() }));
-      } else if (type === 'NEW_BOOKING' || type === 'UPDATE_BOOKING') {
+      if (type === 'NEW_BOOKING' || type === 'UPDATE_BOOKING') {
         // Write each booking to its OWN node keyed by id, so two devices editing
         // different (or the same) bookings at the same time merge instead of overwriting each other.
         const bookings = payload.booking ? [payload.booking] : (payload.bookings || []);
@@ -1883,28 +1883,6 @@ function initGunMeshListener() {
   if (!gunMesh) return;
   try {
     const channel = gunMesh.get('djwalker_ug_global_mesh_v7');
-
-    channel.get('tracks').on((data) => {
-      if (!data) return;
-      try {
-        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-        const tracks = parsed.tracks || (Array.isArray(parsed) ? parsed : null);
-        if (Array.isArray(tracks) && tracks.length > 0) {
-          handleIncomingRealtimeEvent({ type: 'TRACKS_UPDATED', tracks });
-        }
-      } catch (err) {}
-    });
-
-    channel.get('siteInfo').on((data) => {
-      if (!data) return;
-      try {
-        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-        const siteInfo = parsed.siteInfo || (parsed.djName ? parsed : null);
-        if (siteInfo && siteInfo.djName) {
-          handleIncomingRealtimeEvent({ type: 'SITE_INFO_UPDATED', siteInfo });
-        }
-      } catch (err) {}
-    });
 
     // Each booking lives at its own node (bookings/<id>), so .map().on() streams
     // every create/update/delete individually from every device, worldwide, in real time.
