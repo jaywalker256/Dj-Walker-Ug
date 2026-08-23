@@ -1568,6 +1568,33 @@ async function uploadToSupabase(file, isAudio) {
   return data && data.publicUrl ? data.publicUrl : null;
 }
 
+// Shows a big, hard-to-miss banner (once per session) if Firebase rejects a write —
+// almost always means the Realtime Database security rules need updating. This
+// surfaces the problem directly in the admin UI so nobody has to dig through
+// browser dev tools to figure out why saves aren't sticking.
+let firebaseRulesWarningShown = false;
+function flagFirebasePermissionIssue(err) {
+  const code = (err && (err.code || err.message || '')).toString().toUpperCase();
+  if (!code.includes('PERMISSION_DENIED')) return;
+  if (firebaseRulesWarningShown) return;
+  firebaseRulesWarningShown = true;
+
+  let banner = document.getElementById('firebaseRulesBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'firebaseRulesBanner';
+    banner.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:99999; background:#b91c1c; color:#fff; padding:14px 20px; font-family:monospace; font-size:13px; text-align:center; box-shadow:0 2px 10px rgba(0,0,0,0.3);';
+    banner.innerHTML = `
+      ⚠️ Changes aren't saving to the live database — your Firebase security rules are blocking writes.
+      Go to Firebase Console → Realtime Database → Rules and set:
+      <code style="background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px; margin:0 4px;">{ "rules": { ".read": true, ".write": true } }</code>
+      then click Publish.
+      <button onclick="this.parentElement.remove()" style="margin-left:12px; background:#fff; color:#b91c1c; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Dismiss</button>
+    `;
+    document.body.prepend(banner);
+  }
+}
+
 // Writes a booking to Firebase so every open device (admin portal or client) sees it instantly.
 async function pushBookingToFirebase(booking) {
   if (!firebaseBookingsRef) return false;
@@ -1576,6 +1603,7 @@ async function pushBookingToFirebase(booking) {
     return true;
   } catch (err) {
     console.warn('Firebase booking write failed:', err);
+    flagFirebasePermissionIssue(err);
     return false;
   }
 }
@@ -1587,6 +1615,7 @@ async function pushBookingUpdateToFirebase(booking) {
     return true;
   } catch (err) {
     console.warn('Firebase booking update failed:', err);
+    flagFirebasePermissionIssue(err);
     return false;
   }
 }
@@ -1598,6 +1627,7 @@ async function removeBookingFromFirebase(id) {
     return true;
   } catch (err) {
     console.warn('Firebase booking removal failed:', err);
+    flagFirebasePermissionIssue(err);
     return false;
   }
 }
@@ -1638,6 +1668,7 @@ function initFirebaseBookingsSync() {
     });
   }).catch((err) => {
     console.warn('Firebase initial bookings load failed:', err);
+    flagFirebasePermissionIssue(err);
     updateRealtimePresenceUI(false);
   });
 
@@ -1654,6 +1685,7 @@ async function pushTrackToFirebase(track) {
     return true;
   } catch (err) {
     console.warn('Firebase track write failed:', err);
+    flagFirebasePermissionIssue(err);
     return false;
   }
 }
@@ -1665,6 +1697,7 @@ async function removeTrackFromFirebase(id) {
     return true;
   } catch (err) {
     console.warn('Firebase track removal failed:', err);
+    flagFirebasePermissionIssue(err);
     return false;
   }
 }
@@ -1724,9 +1757,11 @@ function initFirebaseTracksSync() {
       }
     }, (err) => {
       console.warn('Firebase tracks listener error:', err);
+      flagFirebasePermissionIssue(err);
     });
   }).catch((err) => {
     console.warn('Firebase initial tracks load failed, keeping local tracks as-is:', err);
+    flagFirebasePermissionIssue(err);
   });
 }
 
@@ -1738,6 +1773,7 @@ async function pushSiteInfoToFirebase(info) {
     return true;
   } catch (err) {
     console.warn('Firebase site info write failed:', err);
+    flagFirebasePermissionIssue(err);
     return false;
   }
 }
@@ -1757,6 +1793,7 @@ function initFirebaseSiteInfoSync() {
     firebaseSiteInfoReady = true;
   }, (err) => {
     console.warn('Firebase site info listener error:', err);
+    flagFirebasePermissionIssue(err);
   });
 }
 
