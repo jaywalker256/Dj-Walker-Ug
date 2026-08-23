@@ -1671,40 +1671,62 @@ async function removeTrackFromFirebase(id) {
 
 function initFirebaseTracksSync() {
   if (!firebaseTracksRef) return;
-  firebaseTracksRef.on('value', (snap) => {
+
+  // One-time reconciliation: merge whatever's already on Firebase with whatever
+  // exists locally (defaults, previous localStorage state). Anything only known
+  // locally gets pushed up so it's never silently lost once live sync takes over.
+  firebaseTracksRef.once('value').then((snap) => {
     const val = snap.val();
-    const tracks = val ? Object.values(val).filter(Boolean) : [];
+    const remoteTracks = val ? Object.values(val).filter(Boolean) : [];
+    const remoteIds = new Set(remoteTracks.map(t => t.id));
 
-    if (tracks.length === 0) {
-      // Nothing saved in Firebase yet (fresh project) — keep local/default tracks as-is.
-      firebaseTracksReady = true;
-      return;
-    }
+    const localOnlyTracks = globalTracks.filter(t => !remoteIds.has(t.id));
+    localOnlyTracks.forEach(t => {
+      firebaseTracksRef.child(t.id).set(t).catch(err => console.warn('Seeding track to Firebase failed:', err));
+    });
 
-    const oldIds = new Set(globalTracks.map(t => t.id));
-    const newlyAdded = tracks.filter(t => !oldIds.has(t.id));
-    globalTracks = tracks;
+    globalTracks = [...remoteTracks, ...localOnlyTracks];
     try { localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks)); } catch (e) {}
     renderTracksList();
     renderAdminTracks();
-
-    if (firebaseTracksReady && newlyAdded.length > 0) {
-      playBookingAlertChime();
-      showToast(`🔥 NEW RELEASE: "${newlyAdded[0].title}" dropped live by DJ Walker UG! 🎶`, 'success');
-      if ('Notification' in window && Notification.permission === 'granted') {
-        try {
-          new Notification('DJ Walker UG · New Release Live!', {
-            body: `Now live: "${newlyAdded[0].title}" (${newlyAdded[0].genre}). Tap to listen!`,
-            icon: resolveMediaUrl(newlyAdded[0].cover)
-          });
-        } catch (e) {}
-      }
-    } else if (firebaseTracksReady) {
-      showToast('Live playlist updated worldwide! 🎶', 'info');
-    }
     firebaseTracksReady = true;
-  }, (err) => {
-    console.warn('Firebase tracks listener error:', err);
+
+    // Now attach the ongoing live listener for real-time updates across devices.
+    firebaseTracksRef.on('value', (liveSnap) => {
+      const liveVal = liveSnap.val();
+      const liveTracks = liveVal ? Object.values(liveVal).filter(Boolean) : [];
+
+      // Never adopt an empty result — a genuine "delete everything" always goes
+      // through explicit per-track removal, so an empty snapshot here is far more
+      // likely a transient/permission blip than an intentional wipe.
+      if (liveTracks.length === 0) return;
+
+      const oldIds = new Set(globalTracks.map(t => t.id));
+      const newlyAdded = liveTracks.filter(t => !oldIds.has(t.id));
+      globalTracks = liveTracks;
+      try { localStorage.setItem('djwalker_tracks', JSON.stringify(globalTracks)); } catch (e) {}
+      renderTracksList();
+      renderAdminTracks();
+
+      if (newlyAdded.length > 0) {
+        playBookingAlertChime();
+        showToast(`🔥 NEW RELEASE: "${newlyAdded[0].title}" dropped live by DJ Walker UG! 🎶`, 'success');
+        if ('Notification' in window && Notification.permission === 'granted') {
+          try {
+            new Notification('DJ Walker UG · New Release Live!', {
+              body: `Now live: "${newlyAdded[0].title}" (${newlyAdded[0].genre}). Tap to listen!`,
+              icon: resolveMediaUrl(newlyAdded[0].cover)
+            });
+          } catch (e) {}
+        }
+      } else {
+        showToast('Live playlist updated worldwide! 🎶', 'info');
+      }
+    }, (err) => {
+      console.warn('Firebase tracks listener error:', err);
+    });
+  }).catch((err) => {
+    console.warn('Firebase initial tracks load failed, keeping local tracks as-is:', err);
   });
 }
 
