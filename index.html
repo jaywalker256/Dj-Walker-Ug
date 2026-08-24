@@ -1797,6 +1797,19 @@ function initFirebaseSiteInfoSync() {
   firebaseSiteInfoRef.on('value', (snap) => {
     const val = snap.val();
     if (val && typeof val === 'object') {
+      const incomingRev = val._updatedAt || 0;
+      const localRev = globalSiteInfo._updatedAt || 0;
+
+      if (incomingRev < localRev) {
+        // What we already have locally is NEWER than what Firebase just sent — this
+        // means our last save never actually reached Firebase (permissions, offline,
+        // etc). Keep the local edit and try pushing it up again instead of reverting.
+        console.warn('Ignoring stale site info from Firebase — re-pushing local version instead.');
+        pushSiteInfoToFirebase(globalSiteInfo);
+        firebaseSiteInfoReady = true;
+        return;
+      }
+
       globalSiteInfo = { ...defaultSiteInfo, ...val };
       if (val.stats) globalSiteInfo.stats = { ...defaultSiteInfo.stats, ...val.stats };
       if (val.socials) globalSiteInfo.socials = { ...defaultSiteInfo.socials, ...val.socials };
@@ -3332,17 +3345,27 @@ async function uploadMediaFile(file, isAudio = true, onProgress = null) {
 
   // 1. Supabase Storage — free, no card required, a real hosted URL that plays on every device.
   if (supabaseClient) {
+    // Supabase's upload() doesn't report real byte progress, so simulate a slowly
+    // climbing indicator instead of a frozen "0%" that looks like it's stuck.
+    let simulatedPct = 0;
+    const progressTicker = onProgress ? setInterval(() => {
+      simulatedPct = Math.min(simulatedPct + 4, 90); // never claim 100% until it's actually done
+      onProgress(simulatedPct);
+    }, 400) : null;
+
     try {
-      if (onProgress) onProgress(0);
+      if (onProgress) onProgress(1);
       // Guard against a silent hang — a real network/config error should surface within 20s
       const url = await Promise.race([
         uploadToSupabase(file, isAudio),
         new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase upload timed out after 20s')), 20000))
       ]);
+      if (progressTicker) clearInterval(progressTicker);
       if (onProgress) onProgress(100);
       if (url) return url;
       flagUploadIssue('Supabase returned no file URL (check the bucket name and policy)');
     } catch (err) {
+      if (progressTicker) clearInterval(progressTicker);
       const msg = (err && err.message) || String(err);
       console.warn('Supabase upload failed, falling back:', msg);
       flagUploadIssue(`Supabase — ${msg}`);
@@ -3645,7 +3668,8 @@ document.getElementById('adminSiteForm').addEventListener('submit', async (e) =>
     ...globalSiteInfo,
     ...payload,
     stats: { ...globalSiteInfo.stats, ...payload.stats },
-    socials: { ...globalSiteInfo.socials, ...payload.socials }
+    socials: { ...globalSiteInfo.socials, ...payload.socials },
+    _updatedAt: Date.now()
   };
   try {
     localStorage.setItem('djwalker_site_info', JSON.stringify(globalSiteInfo));
