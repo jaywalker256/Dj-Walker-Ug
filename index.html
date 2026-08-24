@@ -2259,12 +2259,16 @@ function renderTracksList() {
 
   container.innerHTML = filtered.map((track, i) => {
     const isPlaying = isTrackCurrentlyPlaying(track.id);
-    const coverUrl = resolveMediaUrl(track.cover);
+    const rawCover = track.cover || '';
+    const isIdbCover = rawCover.startsWith('idb://');
+    // idb:// can never be used directly as an <img src> — resolve it async after insert instead.
+    const coverSrcAttr = isIdbCover ? 'assets/favicon-512.png' : resolveMediaUrl(rawCover);
+    const idbAttr = isIdbCover ? `data-idb-cover="${rawCover}"` : '';
     return `
       <div class="track">
         <span class="track-idx mono">${String(i + 1).padStart(2, '0')}</span>
         <div class="track-info">
-          <img class="track-thumb" src="${coverUrl}" alt="Cover" onerror="this.src='assets/favicon-512.png'">
+          <img class="track-thumb" ${idbAttr} src="${coverSrcAttr}" alt="Cover" onerror="this.src='assets/favicon-512.png'">
           <div class="track-meta">
             <h3>${track.title}</h3>
             <span>${track.genre} · ${track.date || ''}</span>
@@ -2284,6 +2288,21 @@ function renderTracksList() {
       </div>
     `;
   }).join('');
+  resolveIdbCoversInContainer(container);
+}
+
+// idb:// cover images can only ever be read from IndexedDB on the SAME device/browser
+// that uploaded them — this resolves those to a real, displayable blob URL after the
+// HTML is in the DOM (image src attributes can't be set asynchronously inline).
+async function resolveIdbCoversInContainer(container) {
+  const imgs = container.querySelectorAll('img[data-idb-cover]');
+  for (const img of imgs) {
+    const ref = img.getAttribute('data-idb-cover');
+    try {
+      const url = await MediaVault.getMediaUrl(ref);
+      if (url) img.src = url;
+    } catch (e) {}
+  }
 }
 
 // ---------- RESILIENT AUDIO ENGINE & ZERO-FAIL FALLBACK ----------
@@ -3184,13 +3203,16 @@ function renderAdminTracks() {
 
   list.innerHTML = globalTracks.map(t => {
     const isPlaying = isTrackCurrentlyPlaying(t.id);
-    const coverUrl = resolveMediaUrl(t.cover);
+    const rawCover = t.cover || '';
+    const isIdbCover = rawCover.startsWith('idb://');
+    const coverSrcAttr = isIdbCover ? 'assets/favicon-512.png' : resolveMediaUrl(rawCover);
+    const idbAttr = isIdbCover ? `data-idb-cover="${rawCover}"` : '';
     const isLocalUpload = t.src && (t.src.startsWith('/uploads/') || t.src.startsWith('idb://') || t.src.startsWith('data:'));
 
     return `
       <div class="admin-track-item">
         <div class="admin-track-info-col">
-          <img src="${coverUrl}" style="width:48px; height:48px; border-radius:8px; object-fit:cover; flex-shrink:0; border:1px solid var(--line);" onerror="this.src='assets/favicon-512.png'">
+          <img ${idbAttr} src="${coverSrcAttr}" style="width:48px; height:48px; border-radius:8px; object-fit:cover; flex-shrink:0; border:1px solid var(--line);" onerror="this.src='assets/favicon-512.png'">
           <div style="overflow:hidden; text-overflow:ellipsis; min-width:0; flex:1;">
             <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
               <strong style="font-size:15px; color:var(--text);">${t.title}</strong>
@@ -3211,6 +3233,7 @@ function renderAdminTracks() {
       </div>
     `;
   }).join('');
+  resolveIdbCoversInContainer(list);
 }
 
 function editAdminTrack(trackId) {
@@ -3294,6 +3317,16 @@ async function deleteAdminTrack(trackId, btnElement) {
 // Media upload helper: uploads to Firebase Storage (real, cross-device file hosting)
 // when it's available, otherwise falls back to on-device storage instantly — never
 // hangs for minutes waiting on a dead server.
+// Shows a clear, unmissable banner (once per session per reason) explaining exactly
+// why an upload didn't reach real cross-device storage — instead of silently falling
+// back to on-device-only storage with no explanation.
+const shownUploadWarnings = new Set();
+function flagUploadIssue(reason) {
+  if (shownUploadWarnings.has(reason)) return;
+  shownUploadWarnings.add(reason);
+  showToast(`⚠️ Upload didn't reach shared storage: ${reason}. Saved on this device only for now.`, 'error');
+}
+
 async function uploadMediaFile(file, isAudio = true, onProgress = null) {
   if (!file) return null;
 
@@ -3301,12 +3334,21 @@ async function uploadMediaFile(file, isAudio = true, onProgress = null) {
   if (supabaseClient) {
     try {
       if (onProgress) onProgress(0);
-      const url = await uploadToSupabase(file, isAudio);
+      // Guard against a silent hang — a real network/config error should surface within 20s
+      const url = await Promise.race([
+        uploadToSupabase(file, isAudio),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Supabase upload timed out after 20s')), 20000))
+      ]);
       if (onProgress) onProgress(100);
       if (url) return url;
+      flagUploadIssue('Supabase returned no file URL (check the bucket name and policy)');
     } catch (err) {
-      console.warn('Supabase upload failed, falling back:', err.message || err);
+      const msg = (err && err.message) || String(err);
+      console.warn('Supabase upload failed, falling back:', msg);
+      flagUploadIssue(`Supabase — ${msg}`);
     }
+  } else {
+    flagUploadIssue('Supabase isn\'t configured (check SUPABASE_CONFIG)');
   }
 
   // 2. Firebase Storage — a real hosted URL that plays on every device (requires Blaze plan).
