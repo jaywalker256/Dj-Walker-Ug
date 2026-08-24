@@ -1568,31 +1568,58 @@ async function uploadToSupabase(file, isAudio) {
   return data && data.publicUrl ? data.publicUrl : null;
 }
 
-// Shows a big, hard-to-miss banner (once per session) if Firebase rejects a write —
-// almost always means the Realtime Database security rules need updating. This
-// surfaces the problem directly in the admin UI so nobody has to dig through
-// browser dev tools to figure out why saves aren't sticking.
-let firebaseRulesWarningShown = false;
+// Shows a big, hard-to-miss banner if Firebase rejects a write. Covers BOTH known
+// failure modes: (a) security rules blocking the write (PERMISSION_DENIED), and
+// (b) a bad/mismatched databaseURL — e.g. FIREBASE_CONFIG.databaseURL points at
+// the legacy us-central1 host but the project's actual Realtime Database instance
+// lives in a different region, so every request fails before rules even apply.
+// Previously this only fired on PERMISSION_DENIED, so failure mode (b) was
+// completely silent — writes would fail with no visible error anywhere. Now it
+// fires on ANY Firebase write failure and tailors the message to the likely cause.
+// It re-shows if dismissed and a NEW failure happens later (tracked per error type),
+// so a real ongoing problem can't be permanently silenced by one click.
+let firebaseWarningShownForType = {};
 function flagFirebasePermissionIssue(err) {
-  const code = (err && (err.code || err.message || '')).toString().toUpperCase();
-  if (!code.includes('PERMISSION_DENIED')) return;
-  if (firebaseRulesWarningShown) return;
-  firebaseRulesWarningShown = true;
+  const raw = (err && (err.code || err.message || String(err))) || 'Unknown error';
+  const code = raw.toString().toUpperCase();
+
+  const isPermission = code.includes('PERMISSION_DENIED');
+  // Network/DNS/URL errors from a wrong-region databaseURL usually show up as
+  // fetch/XHR failures rather than a Firebase error code.
+  const isUrlOrNetwork = !isPermission && (
+    code.includes('FAILED') || code.includes('NETWORK') || code.includes('ENOTFOUND') ||
+    code.includes('CORS') || code.includes('TIMEOUT') || code.includes('FETCH')
+  );
+
+  const warningType = isPermission ? 'permission' : 'other';
+  if (firebaseWarningShownForType[warningType]) return;
+  firebaseWarningShownForType[warningType] = true;
+
+  let message, codeBlock;
+  if (isPermission) {
+    message = `⚠️ Changes aren't saving to the live database — your Firebase security rules are blocking writes.
+      Go to Firebase Console → Realtime Database → Rules and set:`;
+    codeBlock = `{ "rules": { ".read": true, ".write": true } }`;
+  } else {
+    message = `⚠️ Changes aren't reaching the live database (${raw}). This usually means
+      FIREBASE_CONFIG.databaseURL doesn't match your project's actual Realtime Database
+      region. Open Firebase Console → Realtime Database and copy the exact URL shown
+      there into FIREBASE_CONFIG.databaseURL in the code, e.g.:`;
+    codeBlock = `https://djwalker-ug-default-rtdb.&lt;region&gt;.firebasedatabase.app`;
+  }
 
   let banner = document.getElementById('firebaseRulesBanner');
-  if (!banner) {
-    banner = document.createElement('div');
-    banner.id = 'firebaseRulesBanner';
-    banner.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:99999; background:#b91c1c; color:#fff; padding:14px 20px; font-family:monospace; font-size:13px; text-align:center; box-shadow:0 2px 10px rgba(0,0,0,0.3);';
-    banner.innerHTML = `
-      ⚠️ Changes aren't saving to the live database — your Firebase security rules are blocking writes.
-      Go to Firebase Console → Realtime Database → Rules and set:
-      <code style="background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px; margin:0 4px;">{ "rules": { ".read": true, ".write": true } }</code>
-      then click Publish.
-      <button onclick="this.parentElement.remove()" style="margin-left:12px; background:#fff; color:#b91c1c; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Dismiss</button>
-    `;
-    document.body.prepend(banner);
-  }
+  if (banner) banner.remove();
+  banner = document.createElement('div');
+  banner.id = 'firebaseRulesBanner';
+  banner.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:99999; background:#b91c1c; color:#fff; padding:14px 20px; font-family:monospace; font-size:13px; text-align:center; box-shadow:0 2px 10px rgba(0,0,0,0.3);';
+  banner.innerHTML = `
+    ${message}
+    <code style="background:rgba(0,0,0,0.3); padding:2px 6px; border-radius:4px; margin:0 4px;">${codeBlock}</code>
+    ${isPermission ? 'then click Publish.' : ''}
+    <button onclick="this.parentElement.remove()" style="margin-left:12px; background:#fff; color:#b91c1c; border:none; padding:4px 10px; border-radius:4px; cursor:pointer; font-weight:bold;">Dismiss</button>
+  `;
+  document.body.prepend(banner);
 }
 
 // Writes a booking to Firebase so every open device (admin portal or client) sees it instantly.
@@ -3585,16 +3612,26 @@ document.getElementById('adminTrackForm').addEventListener('submit', async (e) =
   renderAdminTracks();
   cancelAdminTrackEdit();
 
-  const savedLocallyOnly = payload.src.startsWith('idb://') || payload.cover.startsWith('idb://') || payload.src.startsWith('data:') || payload.cover.startsWith('data:');
+  const mediaLocalOnly = payload.src.startsWith('idb://') || payload.cover.startsWith('idb://') || payload.src.startsWith('data:') || payload.cover.startsWith('data:');
+  // Previously this toast claimed "live across devices worldwide" any time the media
+  // file itself wasn't local-only — even if BOTH firebaseTrackOk and syncedWithServer
+  // were false, i.e. the metadata write itself never reached anywhere but this browser.
+  const metadataSyncedGlobally = firebaseTrackOk || syncedWithServer;
 
-  showToast(
-    savedLocallyOnly
-      ? `Track "${payload.title}" saved — but the file itself is only stored on THIS device. Paste a direct URL in the Audio/Cover URL field for it to play on every device.`
-      : (trackId
-          ? `Track "${payload.title}" updated and synced live across devices worldwide! 🌐🎶`
-          : `Release "${payload.title}" uploaded & live across devices worldwide! 🌐🎶`),
-    savedLocallyOnly ? 'info' : 'success'
-  );
+  let toastMsg, toastType;
+  if (!metadataSyncedGlobally) {
+    toastMsg = `Track "${payload.title}" saved on THIS device only — the live database rejected the write. Check the red banner at the top for why.`;
+    toastType = 'error';
+  } else if (mediaLocalOnly) {
+    toastMsg = `Track "${payload.title}" saved — but the file itself is only stored on THIS device. Paste a direct URL in the Audio/Cover URL field for it to play on every device.`;
+    toastType = 'info';
+  } else {
+    toastMsg = trackId
+      ? `Track "${payload.title}" updated and synced live across devices worldwide! 🌐🎶`
+      : `Release "${payload.title}" uploaded & live across devices worldwide! 🌐🎶`;
+    toastType = 'success';
+  }
+  showToast(toastMsg, toastType);
   } catch (err) {
     console.error('Track save error:', err);
     showToast('Something went wrong saving this track. Check the browser console for details.', 'error');
@@ -3676,12 +3713,14 @@ document.getElementById('adminSiteForm').addEventListener('submit', async (e) =>
   } catch (err) {}
   renderSiteInfo();
   broadcastToMesh('SITE_INFO_UPDATED', { siteInfo: globalSiteInfo });
-  showToast('Site settings updated and saved!', 'success');
 
   // 2. Primary real-time channel: write straight to Firebase so every device sees this instantly.
-  pushSiteInfoToFirebase(globalSiteInfo);
+  // AWAITED (previously fire-and-forget) so the toast below reflects what actually
+  // happened instead of always claiming success the instant the local copy updated.
+  const firebaseOk = await pushSiteInfoToFirebase(globalSiteInfo);
 
   // 3. Also try a custom backend if one is configured/reachable (optional — not required)
+  let backendOk = false;
   try {
     const res = await fetch(apiUrl('/api/site-info'), {
       method: 'PUT',
@@ -3690,9 +3729,16 @@ document.getElementById('adminSiteForm').addEventListener('submit', async (e) =>
     });
     if (res.ok) {
       fetchSiteInfo();
+      backendOk = true;
     }
   } catch (err) {
     console.warn('Server sync not reachable, saved locally in browser:', err);
+  }
+
+  if (firebaseOk || backendOk) {
+    showToast('Site settings updated and saved everywhere!', 'success');
+  } else {
+    showToast('Saved on THIS device only — the live database rejected the write. Check the red banner at the top for why.', 'error');
   }
 });
 
@@ -4584,23 +4630,32 @@ async function pushBookingUpdate(bookingId, patch, successMessage) {
   renderBookings(globalBookings);
   if (currentDetailBookingId === bookingId) openBookingDetails(bookingId, false);
 
-  // Instant, reliable delivery to every connected admin/client device via Gun mesh + same-tab broadcast
+  // Instant, reliable delivery to every connected admin/client device via Gun mesh + same-tab broadcast.
+  // Gun's public relay peers are best-effort too, so this alone doesn't guarantee global persistence —
+  // Firebase below is the durable store.
   broadcastToMesh('UPDATE_BOOKING', { booking: b });
-  if (successMessage) showToast(successMessage, 'success');
 
-  // Primary real-time channel: Firebase (works across devices, not just tabs)
-  pushBookingUpdateToFirebase(b);
+  // Primary real-time channel: Firebase (works across devices, not just tabs).
+  // AWAITED (previously fire-and-forget) so the toast reflects what actually happened.
+  const firebaseOk = await pushBookingUpdateToFirebase(b);
 
   // Best-effort: also try a backend if one is configured/reachable (not required for real-time sync to work)
+  let backendOk = false;
   try {
     const res = await fetch(apiUrl(`/api/bookings/${encodeURIComponent(bookingId)}/status`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch)
     });
-    if (res.ok) fetchBookings();
+    if (res.ok) { fetchBookings(); backendOk = true; }
   } catch (err) {
-    // Silent: the mesh broadcast above already delivered this update everywhere that's connected.
+    // Silent: the mesh broadcast above already delivered this update to any connected tabs/peers.
+  }
+
+  if (firebaseOk || backendOk) {
+    if (successMessage) showToast(successMessage, 'success');
+  } else {
+    showToast('Update applied on THIS device only — the live database rejected the write. Check the red banner at the top for why.', 'error');
   }
 }
 
@@ -4647,14 +4702,24 @@ async function clearDoneBookings(btnElement) {
   globalBookings = globalBookings.filter(b => b.status !== 'Done' && b.status !== 'Completed');
   renderBookings(globalBookings);
   broadcastToMesh('DELETE_BOOKING', { ids: purgedIds });
-  purgedIds.forEach(id => removeBookingFromFirebase(id));
-  showToast(`Removed ${purgedIds.length} completed/done booking(s) — live everywhere.`, 'success');
 
+  // AWAITED (previously fire-and-forget) so we know whether the deletes actually
+  // reached Firebase before claiming they're "live everywhere".
+  const firebaseResults = await Promise.all(purgedIds.map(id => removeBookingFromFirebase(id)));
+  const firebaseOk = firebaseResults.some(Boolean);
+
+  let backendOk = false;
   try {
     const res = await fetch(apiUrl('/api/bookings/clear-done'), { method: 'DELETE' });
-    if (res.ok) fetchBookings();
+    if (res.ok) { fetchBookings(); backendOk = true; }
   } catch (err) {
     // Silent: already removed locally and broadcast to the mesh above.
+  }
+
+  if (firebaseOk || backendOk) {
+    showToast(`Removed ${purgedIds.length} completed/done booking(s) — live everywhere.`, 'success');
+  } else {
+    showToast(`Removed ${purgedIds.length} booking(s) on THIS device only — the live database rejected the delete. Check the red banner at the top for why.`, 'error');
   }
 }
 
@@ -4681,14 +4746,22 @@ async function deleteBooking(bookingId, btnElement) {
   renderBookings(globalBookings);
   closeBookingDetailsModal();
   broadcastToMesh('DELETE_BOOKING', { id: bookingId });
-  removeBookingFromFirebase(bookingId);
-  showToast('Booking deleted — live everywhere.', 'info');
 
+  // AWAITED (previously fire-and-forget) so the toast reflects what actually happened.
+  const firebaseOk = await removeBookingFromFirebase(bookingId);
+
+  let backendOk = false;
   try {
     const res = await fetch(apiUrl(`/api/bookings/${encodeURIComponent(bookingId)}`), { method: 'DELETE' });
-    if (res.ok) fetchBookings();
+    if (res.ok) { fetchBookings(); backendOk = true; }
   } catch (err) {
     // Silent: already removed locally and broadcast to the mesh above.
+  }
+
+  if (firebaseOk || backendOk) {
+    showToast('Booking deleted — live everywhere.', 'info');
+  } else {
+    showToast('Booking deleted on THIS device only — the live database rejected the delete. Check the red banner at the top for why.', 'error');
   }
 }
 
